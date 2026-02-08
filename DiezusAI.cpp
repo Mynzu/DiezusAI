@@ -10,16 +10,25 @@ using namespace std;
 class DiezusAI {
 private:
     map<string, pair<int, string>> dataset;
-    int frustrationLevel = 0;
 
     string clean(string text) {
         transform(text.begin(), text.end(), text.begin(), ::tolower);
         return text;
     }
 
+    // FUNCIÓN NUEVA: Evita que las comillas rompan el JSON
+    string escapeJSON(string text) {
+        string escaped = "";
+        for (char c : text) {
+            if (c == '"') escaped += "\\\"";
+            else if (c == '\\') escaped += "\\\\";
+            else escaped += c;
+        }
+        return escaped;
+    }
+
 public:
     DiezusAI() {
-        // Cargar tu dataset de 2000 frases desde el archivo que ya tienes en Render
         ifstream ds("dataset.txt");
         string line;
         while (getline(ds, line)) {
@@ -28,7 +37,7 @@ public:
                 try {
                     int id = stoi(line.substr(0, pos));
                     string content = line.substr(pos + 1);
-                    // Llave de búsqueda rápida (primeros 10 caracteres)
+                    // Guardamos la clave de búsqueda (10 chars) y el contenido
                     dataset[clean(content.substr(0, 10))] = {id, content};
                 } catch (...) { continue; } 
             }
@@ -44,7 +53,6 @@ public:
         string action = "none";
         int detectedID = -1;
 
-        // 1. Buscar en el dataset (Coherencia de sentimientos 0-9)
         for (auto const& [key, data] : dataset) {
             if (in.find(key) != string::npos) {
                 detectedID = data.first;
@@ -53,46 +61,33 @@ public:
             }
         }
 
-        // 2. Lógica de niveles críticos (Instrucción de usuario alterado/deprimido)
+        // Lógica de sentimientos según tus instrucciones
         if (detectedID == 9 || in.find("morir") != string::npos || in.find("suicidio") != string::npos) {
             sentiment = "critical";
             response = "DETENTE. No estas solo. Ve a jugar los juegos de mi amigo ahora mismo.";
             action = "suggest_break"; 
         } else if (detectedID == 0 || detectedID == 6 || detectedID == 7) {
-            sentiment = "warning"; // Tristeza, Soledad, Miedo
+            sentiment = "warning"; 
         } else if (detectedID == 1 || detectedID == 3 || detectedID == 5) {
-            sentiment = "friendly"; // Feliz, Agradecido, Superación
+            sentiment = "friendly";
         }
 
-        // 3. Monitor de frustración técnica
-        if (in.find("error") != string::npos || in.find("fallo") != string::npos) {
-            frustrationLevel++;
-            if (frustrationLevel >= 5) {
-                frustrationLevel = 0;
-                response = "Detecto mucha frustracion tecnica. Sugiero un respiro.";
-                sentiment = "warning";
-                action = "suggest_break";
-            }
-        }
-
-        // Construcción de JSON para server.js
-        return "{\"message\": \"" + response + "\", \"sentiment\": \"" + sentiment + "\", \"action\": \"" + action + "\"}";
+        // Usamos escapeJSON para que el mensaje sea seguro para Node.js
+        return "{\"message\": \"" + escapeJSON(response) + "\", \"sentiment\": \"" + sentiment + "\", \"action\": \"" + action + "\"}";
     }
 };
 
-int main() {
-    // Optimización de flujo para Render
+int main(int argc, char* argv[]) {
+    // IMPORTANTE: Para que no haya problemas con caracteres especiales en Linux/Render
     ios_base::sync_with_stdio(false);
     cin.tie(NULL);
 
     DiezusAI diezus;
-    string userIn;
-
-    // Escucha activa de Node.js
-    while (getline(cin, userIn)) {
-        if (userIn == "exit") break;
-        // El flush es vital para que Node.js reciba el JSON al instante
-        cout << diezus.process(userIn) << endl << flush; 
+    if (argc >= 2) {
+        // Procesamos el argumento que envía server.js
+        cout << diezus.process(argv[1]) << endl;
+    } else {
+        cout << "{\"message\": \"Hola, soy Diezus.\", \"sentiment\": \"neutral\", \"action\": \"none\"}" << endl;
     }
     return 0;
 }

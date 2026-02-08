@@ -1,54 +1,27 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
+const { execSync } = require('child_process');
 const app = express();
-
-let diezus;
-try {
-    diezus = require('./build/Release/Diezus');
-    console.log(" Diezus conectado exitosamente");
-} catch (err) {
-    console.error(" Error cargando el core de C++:", err.message);
-    process.exit(1);
-}
 
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// API Login - Forzamos el éxito para que puedas entrar
-app.post('/api/login', (req, res) => {
-    console.log("Intento de login recibido");
-    res.json({ success: true }); 
-});
-
-// API para el Chat con límite de longitud
 app.post('/api/chat', (req, res) => {
     const { mensaje } = req.body;
-    if (!mensaje) return res.json({ respuesta: "Dime algo, amigo." });
+    if (!mensaje) return res.json({ message: "..." });
 
     try {
-        let respuesta = diezus.chat(mensaje);
-        
-        // Si por alguna razón el C++ se emociona y escribe de más, 
-        // lo recortamos aquí también para asegurar los ~50-80 caracteres.
-        if (respuesta.length > 80) {
-            respuesta = respuesta.substring(0, 77) + "...";
-        }
-
-        res.json({ respuesta });
+        // Ejecutamos el binario compilado pasando el mensaje como argumento
+        const resultado = execSync(`./DiezusAI "${mensaje.replace(/"/g, '\\"')}"`).toString();
+        res.json(JSON.parse(resultado));
     } catch (e) {
-        console.error("Error en el core:", e);
-        res.json({ respuesta: "Lo siento, tuve un error en mi núcleo." });
+        console.error("Error en C++:", e);
+        res.json({ message: "Lo siento, mi núcleo está procesando mucha información.", sentiment: "neutral", action: "none" });
     }
 });
 
-app.get('/api/inicio', (req, res) => res.json({ frase: "Hola, soy Diezus. ¿Cómo te sientes hoy?" }));
+app.post('/api/login', (req, res) => res.json({ success: true }));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'Frontend.html')));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'Frontend.html'));
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor en http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
