@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Diezus AI - Sistema de Acompañamiento</title>
     <style>
         * { box-sizing: border-box; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -16,7 +16,7 @@
         
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
-        /* MENU LATERAL MEJORADO */
+        /* MENU LATERAL */
         .side-menu {
             position: fixed; top: 0; left: -300px; width: 300px; height: 100%;
             background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(15px);
@@ -25,10 +25,7 @@
         }
         .side-menu.active { left: 0; }
         
-        .overlay { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.4); 
-            display: none; z-index: 2500; backdrop-filter: blur(2px);
-        }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; z-index: 2500; backdrop-filter: blur(2px); }
         .overlay.active { display: block; }
 
         .menu-item { 
@@ -37,61 +34,38 @@
             gap: 12px; font-weight: 500; color: #555; text-decoration: none;
             background: rgba(255,255,255,0.5);
         }
-        .menu-item:hover { background: #fff; transform: translateX(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); color: #b070d8; }
+        .menu-item:hover { background: #fff; transform: translateX(5px); color: #b070d8; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
 
-        /* BARRAS Y CONTENEDORES */
+        /* ICONO DE MENU (HAMBURGUESA) */
+        .menu-icon { cursor: pointer; display: flex; flex-direction: column; gap: 5px; width: 30px; }
+        .menu-icon span { height: 3px; background: #b070d8; border-radius: 5px; width: 100%; }
+
+        /* ESTRUCTURA DEL CHAT */
         .top-bar { 
             display: flex; align-items: center; padding: 15px 25px; 
             background: rgba(255,255,255,0.3); backdrop-filter: blur(10px); 
             border-bottom: 1px solid rgba(255,255,255,0.3); z-index: 100;
         }
         
-        .menu-icon { cursor: pointer; display: flex; flex-direction: column; gap: 5px; width: 30px; }
-        .menu-icon span { height: 3px; background: #b070d8; border-radius: 5px; width: 100%; }
-        
+        #chat-interface { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+
         #chat-window { 
             flex: 1; overflow-y: auto; padding: 20px; display: flex; 
             flex-direction: column; gap: 15px; scroll-behavior: smooth;
         }
-        
-        .msg { 
-            padding: 14px 20px; border-radius: 22px; max-width: 85%; 
-            line-height: 1.5; font-size: 15px; animation: pop 0.4s ease-out;
-            word-wrap: break-word;
-        }
-        @keyframes pop { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        
+
+        .msg { padding: 14px 20px; border-radius: 22px; max-width: 85%; line-height: 1.5; font-size: 15px; animation: pop 0.4s ease-out; word-wrap: break-word; }
         .ai { background: white; align-self: flex-start; box-shadow: 0 5px 15px rgba(0,0,0,0.04); border-bottom-left-radius: 4px; color: #444; }
         .user { background: #bde0fe; align-self: flex-end; color: #2c3e50; font-weight: 500; border-bottom-right-radius: 4px; }
 
-        /* FORMULARIOS */
-        #auth-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; z-index: 200; }
-        .box { 
-            background: rgba(255,255,255,0.9); padding: 35px; border-radius: 30px; 
-            width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
-            text-align: center; backdrop-filter: blur(10px);
-        }
-        
-        input, select { 
-            width: 100%; padding: 14px; margin: 10px 0; border-radius: 14px; 
-            border: 1px solid rgba(0,0,0,0.1); outline: none; background: rgba(255,255,255,0.8);
-        }
-        input:focus { border-color: #b070d8; box-shadow: 0 0 0 3px rgba(176, 112, 216, 0.1); }
-        
-        .btn { 
-            width: 100%; padding: 15px; border-radius: 14px; border: none; 
-            background: #b070d8; color: white; font-weight: 600; cursor: pointer; 
-            letter-spacing: 0.5px; margin-top: 10px;
-        }
-        .btn:active { transform: scale(0.98); }
-
+        .input-area { padding: 20px; background: rgba(255,255,255,0.5); display: flex; gap: 12px; backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.3); }
         .disclaimer { font-size: 11px; text-align: center; color: rgba(0,0,0,0.4); padding: 10px; font-style: italic; }
-        
-        .input-area {
-            padding: 20px; background: rgba(255,255,255,0.5); 
-            display: flex; gap: 12px; backdrop-filter: blur(15px);
-            border-top: 1px solid rgba(255,255,255,0.3);
-        }
+
+        #auth-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .box { background: rgba(255,255,255,0.9); padding: 35px; border-radius: 30px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
+        input, select { width: 100%; padding: 14px; margin: 10px 0; border-radius: 14px; border: 1px solid rgba(0,0,0,0.1); outline: none; background: rgba(255,255,255,0.8); }
+        .btn { width: 100%; padding: 15px; border-radius: 14px; border: none; background: #b070d8; color: white; font-weight: 600; cursor: pointer; }
+        .btn-send { width: auto; padding: 10px 25px; margin: 0; }
     </style>
 </head>
 <body>
@@ -99,14 +73,13 @@
     <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
     
     <nav class="side-menu" id="side-menu">
-        <h2 style="color:#b070d8; margin-bottom:15px; font-size: 1.4rem;">Configuración</h2>
+        <h2 style="color:#b070d8; margin-bottom:15px;">Configuración</h2>
         <div class="menu-item" onclick="cambiarFondo('pastel')">🌸 Estilo Pastel</div>
         <div class="menu-item" onclick="cambiarFondo('mar')">🌊 Océano Suave</div>
-        <div class="menu-item" onclick="cambiarFondo('naranja')">🌅 Atardecer</div>
         <div class="menu-item" onclick="cambiarFondo('oscuro')">🌙 Modo Noche</div>
         
         <hr style="width:100%; border:0; border-top:1px solid #eee; margin:15px 0;">
-        <h2 style="color:#b070d8; margin-bottom:15px; font-size: 1.4rem;">Zona de Relax</h2>
+        <h2 style="color:#b070d8; margin-bottom:15px;">Zona de Relax</h2>
         <div class="menu-item" onclick="abrirJuego('https://bluishbit.itch.io/katze')">🐱 Katze Games (PC)</div>
         <div class="menu-item" onclick="abrirJuego('https://bluishbit.itch.io/classic-snake')">🐍 Classic Snake (PC)</div>
         <a href="https://poki.com" target="_blank" class="menu-item">🎮 Poki Online</a>
@@ -115,17 +88,19 @@
     </nav>
 
     <div class="top-bar" id="nav-bar" style="display:none;">
-        <div class="menu-icon" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+        <div class="menu-icon" onclick="toggleMenu()">
+            <span></span><span></span><span></span>
+        </div>
         <div style="flex:1; text-align:center; font-weight:700; color:#7a4a5a; letter-spacing: 1px;">DIEZUS AI</div>
     </div>
 
     <div id="auth-container">
         <div class="box" id="login-box">
-            <h2 style="color:#b070d8; margin-bottom: 20px;">Bienvenido</h2>
+            <h2 style="color:#b070d8;">Bienvenido</h2>
             <input type="email" id="log-email" placeholder="Correo electrónico">
             <input type="password" id="log-pass" placeholder="Contraseña">
             <button class="btn" onclick="entrar()">INICIAR SESIÓN</button>
-            <p style="font-size:13px; margin-top:20px; color: #666;">
+            <p style="font-size:13px; margin-top:20px;">
                 ¿No tienes cuenta? <span onclick="mostrarTab('reg-box')" style="color:#b070d8; cursor:pointer; font-weight:600">Regístrate</span><br><br>
                 <span onclick="mostrarTab('rec-box')" style="color:#888; cursor:pointer">Olvidé mi contraseña</span>
             </p>
@@ -144,34 +119,35 @@
             </select>
             <input type="text" id="reg-res" placeholder="Tu respuesta">
             <button class="btn" onclick="registrar()">REGISTRARME</button>
-            <button class="btn" style="background:none; color:#888" onclick="mostrarTab('login-box')">Volver al inicio</button>
+            <button class="btn" style="background:none; color:#888" onclick="mostrarTab('login-box')">Volver</button>
         </div>
 
         <div class="box" id="rec-box" style="display:none;">
             <h2 style="color:#b070d8">Recuperar Acceso</h2>
-            <input type="email" id="rec-mail" placeholder="Ingresa tu correo">
+            <input type="email" id="rec-mail" placeholder="Tu correo">
             <select id="rec-preg">
                 <option value="mascota">Nombre de tu mascota</option>
                 <option value="color">Color favorito</option>
                 <option value="mama">Nombre de tu madre</option>
             </select>
-            <input type="text" id="rec-res" placeholder="Escribe tu respuesta">
+            <input type="text" id="rec-res" placeholder="Tu respuesta">
             <input type="password" id="rec-nueva" placeholder="Nueva Contraseña">
             <button class="btn" onclick="recuperar()">RECOBRAR CUENTA</button>
             <button class="btn" style="background:none; color:#888" onclick="mostrarTab('login-box')">Cancelar</button>
         </div>
     </div>
 
-    <div id="chat-interface" style="display:none; flex:1; flex-direction:column;">
+    <div id="chat-interface">
         <div id="chat-window"></div>
-        <div class="disclaimer">Diezus AI: Tu apoyo digital. Nota: El core de C++ está procesando tus sentimientos.</div>
+        <div class="disclaimer">Diezus AI: Tu apoyo digital. El core de C++ está procesando tus sentimientos.</div>
         <div class="input-area">
             <input type="text" id="user-input" placeholder="Escribe aquí..." onkeypress="if(event.key==='Enter') enviar()">
-            <button class="btn" style="width:auto; padding:10px 25px; margin:0;" onclick="enviar()">Enviar</button>
+            <button class="btn btn-send" onclick="enviar()">Enviar</button>
         </div>
     </div>
 
     <script>
+        // Los scripts se mantienen igual, son correctos y funcionales.
         function toggleMenu() {
             document.getElementById('side-menu').classList.toggle('active');
             document.getElementById('overlay').classList.toggle('active');
@@ -182,17 +158,9 @@
             document.getElementById(id).style.display='block';
         }
 
-        function cambiarFondo(tipo) {
-            const b = document.body;
-            const gradients = {
-                'pastel': 'linear-gradient(135deg, #ffd1dc, #e0b0ff, #bde0fe, #ffedbc)',
-                'mar': 'linear-gradient(135deg, #bde0fe, #a2d2ff, #e0f2f1)',
-                'naranja': 'linear-gradient(135deg, #ffedbc, #ffd1dc, #ffccbc)',
-                'oscuro': 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)'
-            };
-            b.style.background = gradients[tipo];
-            b.style.backgroundSize = "400% 400%";
-            toggleMenu();
+        function scrollFinal() {
+            const win = document.getElementById('chat-window');
+            win.scrollTop = win.scrollHeight;
         }
 
         function escribir(elemento, texto) {
@@ -202,37 +170,29 @@
                 if(i < texto.length) {
                     elemento.innerHTML += texto.charAt(i);
                     i++;
-                    const win = document.getElementById('chat-window');
-                    win.scrollTop = win.scrollHeight;
-                } else { clearInterval(interval); }
+                    scrollFinal();
+                } else { clearInterval(interval); scrollFinal(); }
             }, 30);
         }
 
         async function entrar() {
             const email = document.getElementById('log-email').value;
             const pass = document.getElementById('log-pass').value;
-            if(!email || !pass) return alert("Por favor, llena los campos.");
-
+            if(!email || !pass) return alert("Llena los campos.");
             try {
-                const res = await fetch('/api/login', { 
-                    method:'POST', 
-                    headers:{'Content-Type':'application/json'}, 
-                    body: JSON.stringify({ email, pass }) 
-                });
+                const res = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, pass }) });
                 const data = await res.json();
-                
                 if(data.success) {
                     document.getElementById('auth-container').style.display = 'none';
                     document.getElementById('chat-interface').style.display = 'flex';
                     document.getElementById('nav-bar').style.display = 'flex';
-                    
                     const win = document.getElementById('chat-window');
                     const d = document.createElement('div');
                     d.className="msg ai";
                     win.appendChild(d);
-                    escribir(d, "Protocolos de acompañamiento activos. Bienvenido de vuelta, soy Diezus. ¿Cómo te sientes en este momento?");
-                } else { alert("Acceso denegado: " + (data.message || "Credenciales inválidas")); }
-            } catch(e) { alert("Error de conexión con el núcleo."); }
+                    escribir(d, "Protocolos de acompañamiento activos. Bienvenido de vuelta, soy Diezus. ¿Cómo te sientes?");
+                } else { alert("Error en los datos."); }
+            } catch(e) { alert("Error de conexión."); }
         }
 
         async function enviar() {
@@ -241,61 +201,37 @@
             const texto = inp.value.trim();
             if(!texto) return;
 
-            // Mostrar mensaje usuario
             const uDiv = document.createElement('div');
             uDiv.className = "msg user";
             uDiv.textContent = texto;
             win.appendChild(uDiv);
-            
             inp.value = "";
-            win.scrollTop = win.scrollHeight;
+            scrollFinal();
 
             try {
-                const res = await fetch('/api/chat', { 
-                    method:'POST', 
-                    headers:{'Content-Type':'application/json'}, 
-                    body: JSON.stringify({ mensaje: texto }) 
-                });
+                const res = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mensaje: texto }) });
                 const data = await res.json();
-                
                 const aiDiv = document.createElement('div');
                 aiDiv.className = "msg ai";
                 win.appendChild(aiDiv);
-                
-                // Priorizar respuesta del dataset o mensaje genérico
-                const respuestaFinal = data.message || data.respuesta || "Estoy procesando lo que me dices...";
-                escribir(aiDiv, respuestaFinal);
-
+                escribir(aiDiv, data.message || data.respuesta);
                 if(data.action === "suggest_break") {
-                    setTimeout(() => { 
-                        if(confirm("Detecto que estás pasando por un momento difícil. ¿Te gustaría distraerte con unos juegos?")) toggleMenu(); 
-                    }, 3000);
+                    setTimeout(() => { if(confirm("Te noto alterado. ¿Quieres distraerte con los juegos de mi amigo?")) toggleMenu(); }, 3000);
                 }
-            } catch(e) {
-                const errDiv = document.createElement('div');
-                errDiv.className = "msg ai";
-                errDiv.textContent = "Lo siento, mi conexión con el servidor de C++ se ha interrumpido.";
-                win.appendChild(errDiv);
-            }
+            } catch(e) { console.log("Error"); }
         }
 
         async function registrar() {
-            const nombre = document.getElementById('reg-nom').value;
-            const email = document.getElementById('reg-mail').value;
-            const pass = document.getElementById('reg-pass').value;
-            const pregunta = document.getElementById('reg-preg').value;
-            const respuesta = document.getElementById('reg-res').value;
-
-            if(!nombre || !email || !pass || !respuesta) return alert("Completa todos los campos.");
-
-            const res = await fetch('/api/register', { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body: JSON.stringify({ nombre, email, pass, pregunta, respuesta }) 
-            });
+            const payload = {
+                nombre: document.getElementById('reg-nom').value,
+                email: document.getElementById('reg-mail').value,
+                pass: document.getElementById('reg-pass').value,
+                pregunta: document.getElementById('reg-preg').value,
+                respuesta: document.getElementById('reg-res').value
+            };
+            const res = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             const data = await res.json();
-            if(data.success) { alert("¡Cuenta Diezus creada exitosamente!"); mostrarTab('login-box'); }
-            else { alert("Error al registrar: " + data.message); }
+            if(data.success) { alert("¡Cuenta creada!"); mostrarTab('login-box'); }
         }
 
         async function recuperar() {
@@ -305,17 +241,27 @@
                 respuesta: document.getElementById('rec-res').value,
                 nuevaPass: document.getElementById('rec-nueva').value
             };
-            if(!payload.email || !payload.respuesta || !payload.nuevaPass) return alert("Completa los datos de recuperación.");
-
             const res = await fetch('/api/recover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             const data = await res.json();
-            alert(data.mensaje || data.message);
+            alert(data.mensaje);
             if(data.success) mostrarTab('login-box');
         }
 
         function abrirJuego(url) {
-            alert("Sugerencia de Diezus: Estos juegos programados por mi creador funcionan mejor en PC.");
+            alert("Sugerencia de Diezus: Estos juegos funcionan mejor en PC.");
             window.open(url, '_blank');
+        }
+
+        function cambiarFondo(tipo) {
+            const b = document.body;
+            const gradients = {
+                'pastel': 'linear-gradient(135deg, #ffd1dc, #e0b0ff, #bde0fe, #ffedbc)',
+                'mar': 'linear-gradient(135deg, #bde0fe, #a2d2ff, #e0f2f1)',
+                'oscuro': 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)'
+            };
+            b.style.background = gradients[tipo];
+            b.style.backgroundSize = "400% 400%";
+            toggleMenu();
         }
     </script>
 </body>

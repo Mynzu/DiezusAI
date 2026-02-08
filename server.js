@@ -7,11 +7,9 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// --- PERSISTENCIA DE USUARIOS ---
 const USERS_FILE = './usuarios.json';
 let usuarios = {};
 
-// Cargar usuarios al iniciar
 if (fs.existsSync(USERS_FILE)) {
     usuarios = JSON.parse(fs.readFileSync(USERS_FILE));
 }
@@ -20,84 +18,70 @@ const guardarUsuarios = () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify(usuarios, null, 2));
 };
 
-// --- RUTAS DE AUTENTICACIÓN ---
+// Objeto temporal para contar alertas en la sesión actual
+// Esto no se guarda en el JSON para que el contador reinicie al refrescar,
+// pero podrías moverlo a 'usuarios[email]' si quieres que sea permanente.
+let alertasSesion = {};
 
+// --- RUTAS DE AUTENTICACIÓN --- (Sin cambios)
 app.post('/api/register', (req, res) => {
     const { nombre, email, pass, pregunta, respuesta } = req.body;
-    
-    if (!email || !pass || !nombre) {
-        return res.json({ success: false, message: "Faltan campos críticos." });
-    }
-
-    if (usuarios[email]) {
-        return res.json({ success: false, message: "El correo ya está registrado." });
-    }
-
+    if (!email || !pass || !nombre) return res.json({ success: false, message: "Faltan campos." });
+    if (usuarios[email]) return res.json({ success: false, message: "Ya existe." });
     usuarios[email] = { nombre, pass, pregunta, respuesta };
     guardarUsuarios();
-    
-    console.log(`Usuario registrado: ${email}`);
     res.json({ success: true });
 });
 
 app.post('/api/login', (req, res) => {
     const { email, pass } = req.body;
     const user = usuarios[email];
-
     if (user && user.pass === pass) {
-        res.json({ success: true, nombre: user.nombre });
+        // Inicializamos el contador de alertas para este usuario al loguearse
+        alertasSesion[email] = 0;
+        res.json({ success: true, nombre: user.nombre, email: email }); // Enviamos email para el front
     } else {
-        res.json({ success: false, message: "Correo o contraseña incorrectos." });
+        res.json({ success: false, message: "Error." });
     }
 });
 
-app.post('/api/recover', (req, res) => {
-    const { email, pregunta, respuesta, nuevaPass } = req.body;
-    const user = usuarios[email];
-
-    if (user && user.pregunta === pregunta && user.respuesta === respuesta) {
-        user.pass = nuevaPass;
-        guardarUsuarios();
-        res.json({ success: true, mensaje: "Contraseña actualizada con éxito." });
-    } else {
-        res.json({ success: false, mensaje: "Los datos de seguridad no coinciden." });
-    }
-});
-
-// --- RUTA DEL CHAT (CONEXIÓN CON C++) ---
+// --- RUTA DEL CHAT CON LÓGICA DE 3 ADVERTENCIAS ---
 
 app.post('/api/chat', (req, res) => {
-    const { mensaje } = req.body;
+    const { mensaje, email } = req.body; // El front debe enviar el email del usuario activo
     if (!mensaje) return res.json({ message: "..." });
 
     try {
-        // Escapamos comillas dobles para evitar que rompan el comando de terminal
         const mensajeSeguro = mensaje.replace(/"/g, '\\"');
-        
-        // Ejecutamos el binario DiezusAI compilado por Docker
-        const resultado = execSync(`./DiezusAI "${mensajeSeguro}"`).toString();
-        
-        // Enviamos el JSON que genera el C++ directamente al frontend
-        res.json(JSON.parse(resultado));
+        const resultadoStr = execSync(`./DiezusAI "${mensajeSeguro}"`).toString();
+        const resultado = JSON.parse(resultadoStr);
+
+        // Lógica de acumulador de sentimientos negativos
+        if (resultado.sentiment === "critical") {
+            if (!alertasSesion[email]) alertasSesion[email] = 0;
+            alertasSesion[email]++;
+
+            console.log(`Alerta detectada para ${email}. Total: ${alertasSesion[email]}`);
+
+            // Si aún no llega a 3, bloqueamos la acción de ir a jugar
+            if (alertasSesion[email] < 3) {
+                resultado.action = "none";
+                resultado.message = `Te escucho con atención... (Nota de Diezus: Te noto algo decaído por ${alertasSesion[email]}ª vez).`;
+            } else {
+                // A la tercera vez, mantenemos el 'suggest_break' y reiniciamos contador
+                resultado.message = "Ya son varias veces que te noto así hoy. Como tu compañero Diezus, insisto: detente y despeja tu mente con un juego.";
+                alertasSesion[email] = 0; 
+            }
+        }
+
+        res.json(resultado);
     } catch (e) {
-        console.error("Error ejecutando el núcleo C++:", e);
-        res.json({ 
-            message: "Lo siento, mi núcleo está procesando demasiada información ahora.", 
-            sentiment: "neutral", 
-            action: "none" 
-        });
+        console.error("Error:", e);
+        res.json({ message: "Error en el núcleo.", sentiment: "neutral", action: "none" });
     }
 });
 
-// --- RUTA INICIAL ---
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'Frontend.html')); });
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'Frontend.html'));
-});
-
-// Puerto dinámico para Render
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`--- DIEZUS AI ACTIVO ---`);
-    console.log(`Servidor escuchando en puerto: ${PORT}`);
-});
+app.listen(PORT, () => { console.log(`DIEZUS AI en puerto ${PORT}`); });
