@@ -9,19 +9,24 @@ using namespace std;
 
 class DiezusAI {
 private:
-    map<string, pair<int, string>> dataset;
+    // Guardamos el contenido completo para búsquedas más profundas
+    map<int, string> dataset;
+    vector<pair<string, int>> searchIndex; 
 
     string clean(string text) {
         transform(text.begin(), text.end(), text.begin(), ::tolower);
+        // Eliminamos espacios extra al inicio/final
+        text.erase(0, text.find_first_not_of(" \t\r\n"));
+        text.erase(text.find_last_not_of(" \t\r\n") + 1);
         return text;
     }
 
-    // FUNCIÓN NUEVA: Evita que las comillas rompan el JSON
     string escapeJSON(string text) {
         string escaped = "";
         for (char c : text) {
             if (c == '"') escaped += "\\\"";
             else if (c == '\\') escaped += "\\\\";
+            else if (c == '\n') escaped += " "; // Evita saltos de línea en el JSON
             else escaped += c;
         }
         return escaped;
@@ -37,8 +42,9 @@ public:
                 try {
                     int id = stoi(line.substr(0, pos));
                     string content = line.substr(pos + 1);
-                    // Guardamos la clave de búsqueda (10 chars) y el contenido
-                    dataset[clean(content.substr(0, 10))] = {id, content};
+                    dataset[id] = content;
+                    // Guardamos la versión limpia para comparar
+                    searchIndex.push_back({clean(content), id});
                 } catch (...) { continue; } 
             }
         }
@@ -48,23 +54,25 @@ public:
         if (input.empty()) return "{\"message\": \"...\", \"sentiment\": \"neutral\", \"action\": \"none\"}";
         
         string in = clean(input);
-        string response = "No tengo un registro exacto, pero sigo aprendiendo.";
+        string response = "No tengo un registro exacto, pero sigo aprendiendo de ti.";
         string sentiment = "neutral";
         string action = "none";
         int detectedID = -1;
 
-        for (auto const& [key, data] : dataset) {
-            if (in.find(key) != string::npos) {
-                detectedID = data.first;
-                response = data.second;
+        // BÚSQUEDA MEJORADA: Busca si el mensaje del usuario está contenido en alguna frase
+        // O si alguna palabra clave del dataset está en el mensaje.
+        for (auto const& item : searchIndex) {
+            if (in.find(item.first) != string::npos || item.first.find(in) != string::npos) {
+                detectedID = item.second;
+                response = dataset[detectedID];
                 break;
             }
         }
 
-        // Lógica de sentimientos según tus instrucciones
+        // LÓGICA DE SENTIMIENTOS (Prioridad: Instrucciones de Diezus)
         if (detectedID == 9 || in.find("morir") != string::npos || in.find("suicidio") != string::npos) {
             sentiment = "critical";
-            response = "DETENTE. No estas solo. Ve a jugar los juegos de mi amigo ahora mismo.";
+            response = "DETENTE. No estas solo. Ve a jugar los juegos de mi amigo ahora mismo. Estoy aqui para ti.";
             action = "suggest_break"; 
         } else if (detectedID == 0 || detectedID == 6 || detectedID == 7) {
             sentiment = "warning"; 
@@ -72,22 +80,20 @@ public:
             sentiment = "friendly";
         }
 
-        // Usamos escapeJSON para que el mensaje sea seguro para Node.js
         return "{\"message\": \"" + escapeJSON(response) + "\", \"sentiment\": \"" + sentiment + "\", \"action\": \"" + action + "\"}";
     }
 };
 
 int main(int argc, char* argv[]) {
-    // IMPORTANTE: Para que no haya problemas con caracteres especiales en Linux/Render
+    // Sincronización para Linux/Render
     ios_base::sync_with_stdio(false);
     cin.tie(NULL);
 
     DiezusAI diezus;
     if (argc >= 2) {
-        // Procesamos el argumento que envía server.js
         cout << diezus.process(argv[1]) << endl;
     } else {
-        cout << "{\"message\": \"Hola, soy Diezus.\", \"sentiment\": \"neutral\", \"action\": \"none\"}" << endl;
+        cout << "{\"message\": \"Hola, soy Diezus. El sistema esta listo.\", \"sentiment\": \"neutral\", \"action\": \"none\"}" << endl;
     }
     return 0;
 }
