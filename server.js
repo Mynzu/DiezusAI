@@ -18,12 +18,9 @@ const guardarUsuarios = () => {
     fs.writeFileSync(USERS_FILE, JSON.stringify(usuarios, null, 2));
 };
 
-// Objeto temporal para contar alertas en la sesión actual
-// Esto no se guarda en el JSON para que el contador reinicie al refrescar,
-// pero podrías moverlo a 'usuarios[email]' si quieres que sea permanente.
 let alertasSesion = {};
 
-// --- RUTAS DE AUTENTICACIÓN --- (Sin cambios)
+// --- RUTAS DE AUTENTICACIÓN ---
 app.post('/api/register', (req, res) => {
     const { nombre, email, pass, pregunta, respuesta } = req.body;
     if (!email || !pass || !nombre) return res.json({ success: false, message: "Faltan campos." });
@@ -37,51 +34,56 @@ app.post('/api/login', (req, res) => {
     const { email, pass } = req.body;
     const user = usuarios[email];
     if (user && user.pass === pass) {
-        // Inicializamos el contador de alertas para este usuario al loguearse
         alertasSesion[email] = 0;
-        res.json({ success: true, nombre: user.nombre, email: email }); // Enviamos email para el front
+        res.json({ success: true, nombre: user.nombre, email: email });
     } else {
-        res.json({ success: false, message: "Error." });
+        res.json({ success: false, message: "Error de credenciales." });
     }
 });
 
-// --- RUTA DEL CHAT CON LÓGICA DE 3 ADVERTENCIAS ---
+// --- RUTA DEL CHAT SINCRONIZADA CON C++ ---
 
 app.post('/api/chat', (req, res) => {
-    const { mensaje, email } = req.body; // El front debe enviar el email del usuario activo
-    if (!mensaje) return res.json({ message: "..." });
+    const { mensaje, email } = req.body; 
+    if (!mensaje) return res.json({ res: "..." });
 
     try {
+        // Escapamos comillas para que el shell no rompa el comando
         const mensajeSeguro = mensaje.replace(/"/g, '\\"');
+        
+        // Ejecutamos el motor Diezus (asegúrate que el ejecutable se llame DiezusAI)
         const resultadoStr = execSync(`./DiezusAI "${mensajeSeguro}"`).toString();
         const resultado = JSON.parse(resultadoStr);
 
-        // Lógica de acumulador de sentimientos negativos
-        if (resultado.sentiment === "critical") {
+        // SINCRONIZACIÓN DE VARIABLES:
+        // C++ entrega: sev (0-9), res (texto), act (none/trigger_games)
+        
+        // Lógica de acumulador (Nivel 9 o Nivel 0 detectado por el motor)
+        if (resultado.sev === 9 || resultado.sev === 0) {
             if (!alertasSesion[email]) alertasSesion[email] = 0;
             alertasSesion[email]++;
 
-            console.log(`Alerta detectada para ${email}. Total: ${alertasSesion[email]}`);
+            console.log(`Estado crítico/triste detectado para ${email}. Acumulado: ${alertasSesion[email]}`);
 
-            // Si aún no llega a 3, bloqueamos la acción de ir a jugar
             if (alertasSesion[email] < 3) {
-                resultado.action = "none";
-                resultado.message = `Te escucho con atención... Te noto algo decaído por ${alertasSesion[email]}ª vez).`;
+                // Bloqueamos la redirección automática hasta la 3ra vez
+                resultado.act = "none";
+                resultado.res = `Entiendo que te sientes así (Aviso ${alertasSesion[email]}/3). Aquí estoy para escucharte.`;
             } else {
-                // A la tercera vez, mantenemos el 'suggest_break' y reiniciamos contador
-                resultado.message = "Ya son varias veces que te noto así hoy. Como tu compañero Diezus, insisto: detente y despeja tu mente con un juego.";
-                alertasSesion[email] = 0; 
+                // A la tercera, mantenemos act: "trigger_games"
+                resultado.res = "He notado esta tendencia varias veces hoy. Como Diezus, insisto: es momento de despejar tu mente con un juego.";
+                alertasSesion[email] = 0; // Reiniciamos
             }
         }
 
         res.json(resultado);
     } catch (e) {
-        console.error("Error:", e);
-        res.json({ message: "Error en el núcleo.", sentiment: "neutral", action: "none" });
+        console.error("Error en ejecución C++:", e);
+        res.json({ res: "Error en el núcleo de procesamiento.", sev: 3, act: "none" });
     }
 });
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'Frontend.html')); });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => { console.log(`DIEZUS AI en puerto ${PORT}`); });
+app.listen(PORT, () => { console.log(`DIEZUS AI operativo en puerto ${PORT}`); });

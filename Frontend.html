@@ -175,52 +175,84 @@
             }, 30);
         }
 
-        async function entrar() {
-            const email = document.getElementById('log-email').value;
-            const pass = document.getElementById('log-pass').value;
-            if(!email || !pass) return alert("Llena los campos.");
-            try {
-                const res = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, pass }) });
-                const data = await res.json();
-                if(data.success) {
-                    document.getElementById('auth-container').style.display = 'none';
-                    document.getElementById('chat-interface').style.display = 'flex';
-                    document.getElementById('nav-bar').style.display = 'flex';
-                    const win = document.getElementById('chat-window');
-                    const d = document.createElement('div');
-                    d.className="msg ai";
-                    win.appendChild(d);
-                    escribir(d, "Protocolos de acompañamiento activos. Bienvenido de vuelta, soy Diezus. ¿Cómo te sientes?");
-                } else { alert("Error en los datos."); }
-            } catch(e) { alert("Error de conexión."); }
-        }
+// Variable global para mantener el email del usuario logueado
+let emailUsuarioActivo = ""; 
 
-        async function enviar() {
-            const inp = document.getElementById('user-input');
+async function entrar() {
+    const email = document.getElementById('log-email').value;
+    const pass = document.getElementById('log-pass').value;
+    if(!email || !pass) return alert("Llena los campos.");
+    try {
+        const res = await fetch('/api/login', { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify({ email, pass }) 
+        });
+        const data = await res.json();
+        if(data.success) {
+            emailUsuarioActivo = data.email; // Guardamos el email para el chat
+            document.getElementById('auth-container').style.display = 'none';
+            document.getElementById('chat-interface').style.display = 'flex';
+            document.getElementById('nav-bar').style.display = 'flex';
+            
             const win = document.getElementById('chat-window');
-            const texto = inp.value.trim();
-            if(!texto) return;
+            const d = document.createElement('div');
+            d.className="msg ai";
+            win.appendChild(d);
+            escribir(d, `Protocolos activos. Bienvenido ${data.nombre}, soy Diezus. ¿Cómo va tu día?`);
+        } else { alert("Error en los datos."); }
+    } catch(e) { alert("Error de conexión."); }
+}
 
-            const uDiv = document.createElement('div');
-            uDiv.className = "msg user";
-            uDiv.textContent = texto;
-            win.appendChild(uDiv);
-            inp.value = "";
-            scrollFinal();
+async function enviar() {
+    const inp = document.getElementById('user-input');
+    const win = document.getElementById('chat-window');
+    const texto = inp.value.trim();
+    if(!texto) return;
 
-            try {
-                const res = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mensaje: texto }) });
-                const data = await res.json();
-                const aiDiv = document.createElement('div');
-                aiDiv.className = "msg ai";
-                win.appendChild(aiDiv);
-                escribir(aiDiv, data.message || data.respuesta);
-                if(data.action === "suggest_break") {
-                    setTimeout(() => { if(confirm("Te noto alterado. ¿Quieres distraerte con los juegos de mi amigo?")) toggleMenu(); }, 3000);
-                }
-            } catch(e) { console.log("Error"); }
+    // Mostrar mensaje del usuario
+    const uDiv = document.createElement('div');
+    uDiv.className = "msg user";
+    uDiv.textContent = texto;
+    win.appendChild(uDiv);
+    inp.value = "";
+    scrollFinal();
+
+    try {
+        const res = await fetch('/api/chat', { 
+            method:'POST', 
+            headers:{'Content-Type':'application/json'}, 
+            body: JSON.stringify({ 
+                mensaje: texto, 
+                email: emailUsuarioActivo // Enviamos el email para el contador de 3 alertas
+            }) 
+        });
+        
+        const data = await res.json();
+        const aiDiv = document.createElement('div');
+        aiDiv.className = "msg ai";
+        win.appendChild(aiDiv);
+
+        // Usamos 'data.res' que es lo que envía el C++
+        escribir(aiDiv, data.res || "No recibí respuesta del núcleo.");
+
+        // Lógica de redirección automática a juegos (Nivel 9 o 3ra advertencia)
+        if(data.act === "trigger_games") {
+            setTimeout(() => { 
+                if(confirm("Diezus detecta que necesitas un respiro urgente. ¿Abrir zona de relax?")) {
+                    // Abrir el juego de Katze por defecto
+                    window.open('https://bluishbit.itch.io/katze', '_blank');
+                } 
+            }, 2000);
         }
-
+    } catch(e) { 
+        console.error("Error en el chat:", e);
+        const errDiv = document.createElement('div');
+        errDiv.className = "msg ai";
+        errDiv.textContent = "Error de conexión con el núcleo Diezus.";
+        win.appendChild(errDiv);
+    }
+}
         async function registrar() {
             const payload = {
                 nombre: document.getElementById('reg-nom').value,
