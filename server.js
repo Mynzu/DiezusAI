@@ -66,7 +66,7 @@ app.post('/api/chat', (req, res) => {
             // Si aún no llega a 3, bloqueamos la acción de ir a jugar
             if (alertasSesion[email] < 3) {
                 resultado.action = "none";
-                resultado.message = `Te escucho con atención... (Nota de Diezus: Te noto algo decaído por ${alertasSesion[email]}ª vez).`;
+                resultado.message = `Te escucho con atención... Te noto algo decaído por ${alertasSesion[email]}ª vez).`;
             } else {
                 // A la tercera vez, mantenemos el 'suggest_break' y reiniciamos contador
                 resultado.message = "Ya son varias veces que te noto así hoy. Como tu compañero Diezus, insisto: detente y despeja tu mente con un juego.";

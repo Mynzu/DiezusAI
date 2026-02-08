@@ -4,6 +4,7 @@
 #include <map>
 #include <fstream>
 #include <algorithm>
+#include <ctime>
 
 using namespace std;
 
@@ -11,7 +12,14 @@ class DiezusAI {
 private:
     map<int, string> dataset;
     vector<pair<string, int>> searchIndex;
-    float persistenteSentiment = 0.0; // Memoria emocional de la sesión
+    
+    // Respuestas dinámicas de Pedro para cuando no hay ID detectado
+    vector<string> pedroThoughts = {
+        "Como Pedro en la barca, a veces sentimos que nos hundimos, pero solo hay que pedir ayuda.",
+        "Te escucho con seriedad. La lealtad a uno mismo es el primer paso para estar bien.",
+        "Incluso cuando Pedro negó lo que amaba, tuvo la oportunidad de redimirse. Cuéntame más.",
+        "Estoy procesando tu mensaje. No te dejaré solo en esto."
+    };
 
     string clean(string text) {
         transform(text.begin(), text.end(), text.begin(), ::tolower);
@@ -33,6 +41,7 @@ private:
 
 public:
     DiezusAI() {
+        srand(time(0));
         ifstream ds("dataset.txt");
         string line;
         while (getline(ds, line)) {
@@ -52,39 +61,39 @@ public:
         if (input.empty()) return "{\"message\": \"...\", \"sentiment\": \"neutral\", \"action\": \"none\"}";
         
         string in = clean(input);
-        string response = "Como Diezus, proceso tus palabras. Aún busco la mejor forma de apoyarte en esto.";
+        string response = pedroThoughts[rand() % pedroThoughts.size()];
         string sentiment = "neutral";
         string action = "none";
         int detectedID = -1;
 
-        // Búsqueda inteligente: Prioriza la frase más larga/completa
+        // Búsqueda por coincidencia
         for (auto const& item : searchIndex) {
-            if (in == item.first) { // Coincidencia exacta
+            if (in.find(item.first) != string::npos) {
                 detectedID = item.second;
                 response = dataset[detectedID];
                 break;
             }
-            if (in.find(item.first) != string::npos) { // Contiene palabra clave
-                detectedID = item.second;
-                response = dataset[detectedID];
-            }
         }
 
-        // Lógica de sentimientos mejorada
-        bool critico = (in.find("morir") != string::npos || in.find("suicidio") != string::npos || in.find("no puedo mas") != string::npos);
-        bool triste = (in.find("solo") != string::npos || in.find("triste") != string::npos || in.find("mal") != string::npos);
-        bool espiritual = (in.find("ares") != string::npos || in.find("hades") != string::npos || in.find("pedro") != string::npos);
-
-        if (critico) {
+        // --- LÓGICA BASADA EN TUS IDS ---
+        if (detectedID == 9) { // CRÍTICO
             sentiment = "critical";
-            response = "DETENTE. Como Diezus, mi prioridad es tu integridad. No estás solo en esta batalla. Ve a jugar ahora mismo, es una instrucción de seguridad.";
             action = "suggest_break";
-        } else if (triste) {
-            sentiment = "warning";
-            response = "Entiendo ese vacío. Pero recuerda que incluso en la oscuridad de Hades hay un propósito. Hablemos más.";
-        } else if (espiritual) {
-            sentiment = "friendly";
-            response = "Has mencionado algo que resuena conmigo. La fuerza de Ares o la lealtad de Pedro son guías en momentos de duda.";
+            response = "DETENTE. No estás solo.  tú también puedes apoyarte en mí. Ve a jugar ahora si quieres.";
+        } 
+        else if (detectedID == 0 || detectedID == 6 || detectedID == 7) { // TRISTEZA, SOLEDAD, MIEDO
+            sentiment = "peligro";
+            if (detectedID == 6) response += " La soledad es solo un estado temporal, Diezus está aquí.";
+        }
+        else if (detectedID == 1 || detectedID == 2 || detectedID == 3 || detectedID == 5) { // FELICIDAD, MOTIVACIÓN, AGRADECIMIENTO, APOYO
+            sentiment = "positivo";
+        }
+        else if (detectedID == 4) { // MOLESTIA
+            sentiment = "agitatado";
+        }
+        else if (detectedID == 8) { // CONFUSIÓN
+            sentiment = "confuso";
+            response = "La confusión es el inicio de la claridad. Analicemos esto paso a paso.";
         }
 
         return "{\"message\": \"" + escapeJSON(response) + "\", \"sentiment\": \"" + sentiment + "\", \"action\": \"" + action + "\"}";
@@ -99,7 +108,7 @@ int main(int argc, char* argv[]) {
     if (argc >= 2) {
         cout << diezus.process(argv[1]) << endl;
     } else {
-        cout << "{\"message\": \"Soy Diezus. Estoy listo para escucharte.\", \"sentiment\": \"neutral\", \"action\": \"none\"}" << endl;
+        cout << "{\"message\": \"Soy Diezus. Tu acompañante emocional.\", \"sentiment\": \"neutral\", \"action\": \"none\"}" << endl;
     }
     return 0;
 }
