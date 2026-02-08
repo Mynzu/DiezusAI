@@ -12,19 +12,10 @@ class DiezusAI {
 private:
     map<int, string> dataset;
     vector<pair<string, int>> searchIndex;
-    
-    // Respuestas dinámicas de Pedro para cuando no hay ID detectado
-    vector<string> pedroThoughts = {
-        "Como Pedro en la barca, a veces sentimos que nos hundimos, pero solo hay que pedir ayuda.",
-        "Te escucho con seriedad. La lealtad a uno mismo es el primer paso para estar bien.",
-        "Incluso cuando Pedro negó lo que amaba, tuvo la oportunidad de redimirse. Cuéntame más.",
-        "Estoy procesando tu mensaje. No te dejaré solo en esto."
-    };
+    map<string, string> diccionarioEmocional;
 
     string clean(string text) {
         transform(text.begin(), text.end(), text.begin(), ::tolower);
-        text.erase(0, text.find_first_not_of(" \t\r\n"));
-        text.erase(text.find_last_not_of(" \t\r\n") + 1);
         return text;
     }
 
@@ -33,15 +24,76 @@ private:
         for (char c : text) {
             if (c == '"') escaped += "\\\"";
             else if (c == '\\') escaped += "\\\\";
-            else if (c == '\n') escaped += " "; 
             else escaped += c;
         }
         return escaped;
     }
 
+    void cargarDiccionario() {
+        // POSITIVOS (Felicidad, Afecto, Compasión, Admiración, Alivio, Confianza, Amor)
+        vector<string> pos = {
+            "alegria", "felicidad", "dicha", "jubilo", "entusiasmo", "contento", "optimismo", "euforia", "gozo", "regocijo",
+            "afecto", "amabilidad", "benevolencia", "solidaridad", "bondad", "cariño", "ternura", "generosidad", "integridad",
+            "compasion", "empatia", "piedad", "sensibilidad", "comprension", "altruismo", "humanidad",
+            "admiracion", "aprobacion", "estima", "honorabilidad", "agradecimiento", "alivio", "tranquilo", "calma", "serenidad", "armonia",
+            "confianza", "valentia", "coraje", "determinacion", "fuerza", "seguridad", "autoestima", "resiliencia",
+            "amor", "aprecio", "adoracion", "devocion", "pasion", "romance", "atraccion", "paz"
+        };
+        for(auto& p : pos) diccionarioEmocional[p] = "positivo";
+
+        // ADVERTENCIA / TRISTEZA / DOLOR (Añoranza, Abandono, Nostalgia, Depresión)
+        vector<string> adv = {
+            "tristeza", "afliccion", "desanimo", "desmotivacion", "desasosiego", "añoranza", "anhelo", "esperanza", "apego",
+            "nostalgia", "melancolia", "saudade", "recuerdo", "depresion", "vacio", "duelo", "derrota", "desaliento",
+            "pesimismo", "negatividad", "desesperanza", "abandono", "ausencia", "desamparo", "desolacion", "soledad"
+        };
+        for(auto& p : adv) diccionarioEmocional[p] = "advertencia";
+
+        // AGITADO / IRA / MOLESTIA (Resentimiento, Injusticia, Celos, Agravio)
+        vector<string> agit = {
+            "ira", "enojo", "furia", "rabia", "rebeldia", "indignacion", "resentimiento", "repudio", "rencor", "injusticia",
+            "insatisfaccion", "celos", "envidia", "recelos", "sospecha", "agravio", "ofensa", "ultraje", "injuria", "desprecio",
+            "abuso", "insulto", "agresion", "alteracion", "destruccion", "terquedad", "obstinacion", "rigidez"
+        };
+        for(auto& p : agit) diccionarioEmocional[p] = "agitado";
+
+        // ABRUMADO / CANSANCIO / SALUD (Estrés, Ansiedad, Fatiga, Incapacidad)
+        vector<string> abr = {
+            "agobio", "angustia", "ansiedad", "estres", "presion", "sobrecarga", "tension", "fatiga", "agotamiento", "estres academico",
+            "cansancio", "exhausto", "desgano", "abatimiento", "enfermedad", "dolor", "fiebre", "nauseas", "mareo", "malestar",
+            "incapacidad", "ineptitud", "incompetencia", "inutilidad", "torpeza", "pereza", "flojera", "procastinacion", "insomnio"
+        };
+        for(auto& p : abr) diccionarioEmocional[p] = "abrumado";
+
+        // CONFUNDIDO / SORPRESA (Duda, Incertidumbre, Desorientación)
+        vector<string> conf = {
+            "sorpresa", "asombro", "maravilla", "estupor", "incredulidad", "desconcierto", "impresion",
+            "confusion", "duda", "desorientacion", "incertidumbre", "turbacion", "inquietud", "ambivalencia", "intriga", "curiosidad"
+        };
+        for(auto& p : conf) diccionarioEmocional[p] = "confundido";
+
+        // CRÍTICO / PREOCUPANTE (Protocolo de Juego)
+        vector<string> crit = {
+            "muerte", "suicidio", "asesinato", "matarme", "acabar con todo", "morir", "espanto", "miedo", "terror", "panico", "fobia"
+        };
+        for(auto& p : crit) diccionarioEmocional[p] = "critico";
+        
+        // SITUACIONES / TRABAJO (Neutrales)
+        vector<string> sit = {
+            "examen", "clase", "escuela", "universidad", "profesor", "tarea", "estudio", "nota", "graduacion", "proyecto",
+            "trabajo", "empleo", "oficina", "jefe", "salario", "negocio", "reunion"
+        };
+        for(auto& p : sit) {
+            if(diccionarioEmocional.find(p) == diccionarioEmocional.end()) 
+                diccionarioEmocional[p] = "neutral";
+        }
+    }
+
 public:
     DiezusAI() {
         srand(time(0));
+        cargarDiccionario();
+        
         ifstream ds("dataset.txt");
         string line;
         while (getline(ds, line)) {
@@ -49,66 +101,59 @@ public:
             if (pos != string::npos) {
                 try {
                     int id = stoi(line.substr(0, pos));
-                    string content = line.substr(pos + 1);
-                    dataset[id] = content;
-                    searchIndex.push_back({clean(content), id});
-                } catch (...) { continue; } 
+                    string contenido = line.substr(pos + 1);
+                    dataset[id] = contenido;
+                    searchIndex.push_back({clean(contenido), id});
+                } catch (...) { continue; }
             }
         }
     }
 
     string process(string input) {
-        if (input.empty()) return "{\"message\": \"...\", \"sentiment\": \"neutral\", \"action\": \"none\"}";
-        
         string in = clean(input);
-        string response = pedroThoughts[rand() % pedroThoughts.size()];
-        string sentiment = "neutral";
-        string action = "none";
-        int detectedID = -1;
+        string respuesta = "Como Diezus, proceso tus palabras. Cuéntame más.";
+        string sentimiento = "neutral";
+        string accion = "none";
+        int idDetectado = -1;
 
-        // Búsqueda por coincidencia
+        // 1. BUSQUEDA EN DATASET (Prioridad: Frase exacta o palabra clave en dataset)
         for (auto const& item : searchIndex) {
             if (in.find(item.first) != string::npos) {
-                detectedID = item.second;
-                response = dataset[detectedID];
+                idDetectado = item.second;
+                respuesta = dataset[idDetectado];
                 break;
             }
         }
 
-        // --- LÓGICA BASADA EN TUS IDS ---
-        if (detectedID == 9) { // CRÍTICO
-            sentiment = "critical";
-            action = "suggest_break";
-            response = "DETENTE. No estás solo.  tú también puedes apoyarte en mí. Ve a jugar ahora si quieres.";
-        } 
-        else if (detectedID == 0 || detectedID == 6 || detectedID == 7) { // TRISTEZA, SOLEDAD, MIEDO
-            sentiment = "peligro";
-            if (detectedID == 6) response += " La soledad es solo un estado temporal, Diezus está aquí.";
-        }
-        else if (detectedID == 1 || detectedID == 2 || detectedID == 3 || detectedID == 5) { // FELICIDAD, MOTIVACIÓN, AGRADECIMIENTO, APOYO
-            sentiment = "positivo";
-        }
-        else if (detectedID == 4) { // MOLESTIA
-            sentiment = "agitatado";
-        }
-        else if (detectedID == 8) { // CONFUSIÓN
-            sentiment = "confuso";
-            response = "La confusión es el inicio de la claridad. Analicemos esto paso a paso.";
+        // 2. BUSQUEDA EN DICCIONARIO (Sentimiento por palabras sueltas de la lista)
+        for (auto const& [palabra, tipo] : diccionarioEmocional) {
+            if (in.find(palabra) != string::npos) {
+                sentimiento = tipo;
+                if (tipo == "critico" || idDetectado == 9) {
+                    sentimiento = "critico";
+                    accion = "sugerir_juego";
+                    respuesta = "DETENTE. Como Diezus, detecto una situación de riesgo. Mi prioridad es tu integridad. No estás solo; ve a jugar ahora mismo.";
+                }
+                break; 
+            }
         }
 
-        return "{\"message\": \"" + escapeJSON(response) + "\", \"sentiment\": \"" + sentiment + "\", \"action\": \"" + action + "\"}";
+        // 3. SINCRONIZACIÓN FINAL CON IDS ESPECÍFICOS
+        if (idDetectado == 0 || idDetectado == 6 || idDetectado == 7) sentimiento = "advertencia";
+        if (idDetectado == 1 || idDetectado == 2 || idDetectado == 3 || idDetectado == 5) sentimiento = "positivo";
+        if (idDetectado == 4) sentimiento = "agitado";
+        if (idDetectado == 8) sentimiento = "confundido";
+
+        return "{\"respuesta\": \"" + escapeJSON(respuesta) + "\", \"sentimiento\": \"" + sentimiento + "\", \"accion\": \"" + accion + "\"}";
     }
 };
 
 int main(int argc, char* argv[]) {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-
     DiezusAI diezus;
     if (argc >= 2) {
         cout << diezus.process(argv[1]) << endl;
     } else {
-        cout << "{\"message\": \"Soy Diezus. Tu acompañante emocional.\", \"sentiment\": \"neutral\", \"action\": \"none\"}" << endl;
+        cout << "{\"respuesta\": \"Soy Diezus. Estoy listo.\", \"sentimiento\": \"neutral\", \"accion\": \"none\"}" << endl;
     }
     return 0;
 }
