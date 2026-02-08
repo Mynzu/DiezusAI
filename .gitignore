@@ -1,0 +1,12 @@
+# Carpetas de sistema y librerías
+node_modules/
+build/
+.DS_Store
+
+# Archivos de datos de Diezus (Para que no se borren al actualizar)
+users.txt
+memoria_diezus.txt
+dataset.txt.bak
+
+# Logs de errores
+npm-debug.log*
