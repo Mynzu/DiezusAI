@@ -2,216 +2,234 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Diezus AI - Pastel Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diezus AI</title>
     <style>
-        /* (Mantén tu CSS igual, está perfecto) */
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         body { 
             margin: 0; font-family: 'Segoe UI', sans-serif; 
             background: linear-gradient(135deg, #ffd1dc, #e0b0ff, #bde0fe, #ffedbc); 
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-            height: 100vh; display: flex; color: #4a4a4a;
-            transition: background 0.8s ease; overflow: hidden;
+            background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+            height: 100dvh; display: flex; flex-direction: column; overflow: hidden; 
         }
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+        .side-menu {
+            position: fixed; top: 0; left: -300px; width: 300px; height: 100%;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            box-shadow: 5px 0 25px rgba(0,0,0,0.1); z-index: 2000; padding: 25px;
+            display: flex; flex-direction: column; gap: 10px;
         }
-        body.dark-mode {
-            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e) !important;
-            color: #e0e0e0;
+        .side-menu.active { left: 0; }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: none; z-index: 1999; }
+        .overlay.active { display: block; }
+
+        .menu-item { 
+            padding: 12px 15px; border-radius: 12px; cursor: pointer; border: 1px solid rgba(0,0,0,0.05);
+            display: flex; align-items: center; gap: 10px; font-weight: 500; color: #444; text-decoration: none;
         }
-        #auth-container { width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; position: absolute; z-index: 10; }
-        .box { background: rgba(255, 255, 255, 0.9); padding: 30px; border-radius: 25px; border: 2px solid #bde0fe; text-align: center; width: 420px; backdrop-filter: blur(10px); }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border-radius: 20px; border: 1px solid #e0b0ff; outline: none; background: #fff; color: #000; }
-        #chat-interface { display: none; width: 100%; height: 100vh; grid-template-columns: 250px 1fr; }
-        .sidebar { background: rgba(255, 255, 255, 0.5); border-right: 1px solid #ffd1dc; display: flex; flex-direction: column; padding: 20px; justify-content: space-between; }
-        .chat-main { display: flex; flex-direction: column; height: 100vh; padding: 20px; }
-        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: rgba(255, 255, 255, 0.4); border-radius: 15px; }
-        .msg { padding: 12px 18px; border-radius: 20px; max-width: 75%; line-height: 1.4; word-wrap: break-word; color: #000000 !important; }
-        .ai { background: #ffffff; align-self: flex-start; border: 1px solid #eee; }
-        .user { background: #bde0fe; align-self: flex-end; font-weight: 500; }
-        .btn { padding: 12px; border-radius: 25px; border: none; background: #ffd1dc; color: #7a4a5a; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .menu-btn { width: 100%; background: #ffffff; border: 1px solid #e0b0ff; color: #b070d8; padding: 12px; border-radius: 15px; cursor: pointer; margin-bottom: 10px; font-weight: bold; }
-        .link-btn { display: block; width: 100%; padding: 12px; border-radius: 15px; text-align: center; text-decoration: none; font-weight: bold; margin-top: 10px; }
-        .katze-btn { border: 1px solid #e0b0ff; color: #b070d8; background: #fff; }
-        .poki-btn { border: 1px solid #ffedbc; color: #d4a017; background: #fffdf6; }
-        .disclaimer { font-size: 11px; color: #888; text-align: center; margin-top: 5px; }
-        .themes { display: none; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+        .menu-item:hover { background: white; transform: translateX(8px); box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
+        .top-bar { display: flex; align-items: center; padding: 15px 25px; background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); }
+        .menu-icon { cursor: pointer; display: flex; flex-direction: column; gap: 5px; width: 30px; }
+        .menu-icon span { height: 3px; background: #b070d8; border-radius: 5px; }
+        
+        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 80%; line-height: 1.4; animation: pop 0.3s ease; }
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .ai { background: white; align-self: flex-start; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .user { background: #bde0fe; align-self: flex-end; color: #2c3e50; font-weight: 500; }
+
+        .disclaimer { font-size: 11px; text-align: center; color: rgba(0,0,0,0.5); padding: 10px; font-style: italic; }
+
+        #auth-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .box { background: white; padding: 30px; border-radius: 25px; width: 100%; max-width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid #ddd; outline: none; }
+        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #b070d8; color: white; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
 
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    
+    <nav class="side-menu" id="side-menu">
+        <h2 style="color:#b070d8; margin-bottom:15px">Personalizar</h2>
+        <div class="menu-item" onclick="cambiarFondo('pastel')">🌸 Fondo Pastel</div>
+        <div class="menu-item" onclick="cambiarFondo('mar')">🌊 Fondo Océano (Pastel)</div>
+        <div class="menu-item" onclick="cambiarFondo('naranja')">🌅 Fondo Atardecer (Pastel)</div>
+        <div class="menu-item" onclick="cambiarFondo('oscuro')">🌙 Modo Noche</div>
+        
+        <hr style="width:100%; border:0; border-top:1px solid #eee; margin:10px 0;">
+        <h2 style="color:#b070d8; margin-bottom:15px">Diversión</h2>
+        <div class="menu-item" onclick="abrirJuego('https://bluishbit.itch.io/katze')">🐱 Katze Games (PC)</div>
+        <div class="menu-item" onclick="abrirJuego('https://bluishbit.itch.io/classic-snake')">🐍 Classic Snake (PC)</div>
+        <a href="https://poki.com" target="_blank" class="menu-item">🎮 Poki Online</a>
+        
+        <div class="menu-item" style="color:red; margin-top:auto" onclick="location.reload()">🚪 Cerrar Sesión</div>
+    </nav>
+
+    <div class="top-bar" id="nav-bar" style="display:none;">
+        <div class="menu-icon" onclick="toggleMenu()"><span></span><span></span><span></span></div>
+        <div style="flex:1; text-align:center; font-weight:bold; color:#7a4a5a">DIEZUS AI</div>
+    </div>
+
     <div id="auth-container">
         <div class="box" id="login-box">
-            <h1 style="color: #b070d8;">DIEZUS AI</h1>
+            <h2 style="color:#b070d8">Bienvenido</h2>
             <input type="email" id="log-email" placeholder="Correo">
             <input type="password" id="log-pass" placeholder="Contraseña">
-            <button class="btn" style="width:100%" onclick="entrar()">ENTRAR</button>
-            <p style="font-size:12px; margin-top:10px;">
-                <span onclick="mostrarTab('register-box')" style="cursor:pointer; color:#b070d8;">Registrarse</span> | 
-                <span onclick="mostrarTab('recover-box')" style="cursor:pointer; color:#b070d8;">¿Olvidaste tu clave?</span>
+            <button class="btn" onclick="entrar()">ENTRAR</button>
+            <p style="font-size:12px; margin-top:15px;">
+                <span onclick="mostrarTab('reg-box')" style="color:#b070d8; cursor:pointer">Registrarse</span> | 
+                <span onclick="mostrarTab('rec-box')" style="color:#b070d8; cursor:pointer">Recuperar Clave</span>
             </p>
         </div>
 
-        <div class="box" id="register-box" style="display:none;">
-            <h2 style="color: #b070d8;">Crear Cuenta</h2>
-            <select id="reg-pregunta">
-                <option value="mascota">¿Nombre de tu mascota?</option>
-                <option value="ciudad">¿Ciudad de nacimiento?</option>
-                <option value="color">¿Color favorito?</option>
-            </select>
-            <input type="text" id="reg-r" placeholder="Respuesta a la pregunta">
-            <input type="text" id="reg-nom" placeholder="Tu Apodo">
+        <div class="box" id="reg-box" style="display:none;">
+            <h2>Crear Cuenta</h2>
+            <input type="text" id="reg-nom" placeholder="Apodo">
             <input type="email" id="reg-mail" placeholder="Correo">
             <input type="password" id="reg-pass" placeholder="Contraseña">
-            <button class="btn" style="width:100%" onclick="registrar()">REGISTRARME</button>
-            <button class="btn" style="background:none; width:100%" onclick="mostrarTab('login-box')">Volver</button>
+            <select id="reg-preg">
+                <option value="mascota">Nombre de tu mascota</option>
+                <option value="color">Color favorito</option>
+                <option value="mama">Nombre de tu madre</option>
+            </select>
+            <input type="text" id="reg-res" placeholder="Respuesta de seguridad">
+            <button class="btn" onclick="registrar()">REGISTRAR</button>
+            <button class="btn" style="background:none; color:#888" onclick="mostrarTab('login-box')">Volver</button>
         </div>
 
-        <div class="box" id="recover-box" style="display:none;">
-            <h2 style="color: #b070d8;">Recuperar</h2>
-            <select id="rec-pregunta">
-                <option value="mascota">¿Nombre de tu mascota?</option>
-                <option value="ciudad">¿Ciudad de nacimiento?</option>
-                <option value="color">¿Color favorito?</option>
+        <div class="box" id="rec-box" style="display:none;">
+            <h2>Recuperar Cuenta</h2>
+            <input type="email" id="rec-mail" placeholder="Tu Correo">
+            <select id="rec-preg">
+                <option value="mascota">Nombre de tu mascota</option>
+                <option value="color">Color favorito</option>
+                <option value="mama">Nombre de tu madre</option>
             </select>
-            <input type="text" id="rec-r" placeholder="Tu respuesta">
-            <input type="email" id="rec-email" placeholder="Correo de la cuenta">
+            <input type="text" id="rec-res" placeholder="Tu respuesta">
             <input type="password" id="rec-nueva" placeholder="Nueva Contraseña">
-            <button class="btn" style="width:100%" onclick="recuperar()">ACTUALIZAR</button>
-            <button class="btn" style="background:none; width:100%" onclick="mostrarTab('login-box')">Volver</button>
+            <button class="btn" onclick="recuperar()">ACTUALIZAR</button>
+            <button class="btn" style="background:none; color:#888" onclick="mostrarTab('login-box')">Volver</button>
         </div>
     </div>
 
-    <div id="chat-interface">
-        <div class="sidebar">
-            <div>
-                <h2 style="color: #b070d8;">DIEZUS</h2>
-                <button class="menu-btn" onclick="toggleMenu()">Temas ☰</button>
-                <div id="themes-box" class="themes">
-                    <button class="btn" style="width:100%; margin-bottom:5px;" onclick="cambiarFondo('original')">Pastel Mix</button>
-                    <button class="btn" style="width:100%; margin-bottom:5px; background:#bde0fe;" onclick="cambiarFondo('oceano')">Océano</button>
-                    <button class="btn" style="width:100%; margin-bottom:5px; background:#ffcc99;" onclick="cambiarFondo('naranja')">Naranja</button>
-                    <button class="btn" style="width:100%; margin-bottom:5px; background:#24243e; color:white;" onclick="cambiarFondo('oscuro')">Modo Noche 🌙</button>
-                </div> 
-                <a href="/katze" class="link-btn katze-btn">Katze</a>
-                <a href="https://poki.com" target="_blank" class="link-btn poki-btn">🎮 Jugar Poki</a>
-            </div>
-            <button class="btn" style="background:transparent; border:1px solid #e0b0ff;" onclick="location.reload()">Salir</button>
-        </div> 
-
-        <div class="chat-main">
-            <div id="chat-window"></div>
-            <div style="display:flex; gap:10px; margin-top:10px; flex-direction:column;">
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="user-input" placeholder="Escribe algo..." onkeypress="if(event.key==='Enter') enviarMensaje()">
-                    <button class="btn" style="width:100px;" onclick="enviarMensaje()">ENVIAR</button>
-                </div>
-                <div class="disclaimer">Diezus puede cometer errores. Verifica la información importante.</div>
-            </div>
+    <div id="chat-interface" style="display:none; flex:1; flex-direction:column;">
+        <div id="chat-window"></div>
+        <div class="disclaimer">Diezus puede cometer errores. Considera verificar la información importante.</div>
+        <div style="padding:15px; background:rgba(255,255,255,0.4); display:flex; gap:10px; backdrop-filter:blur(10px)">
+            <input type="text" id="user-input" placeholder="Habla con Diezus..." onkeypress="if(event.key==='Enter') enviar()">
+            <button class="btn" style="width:auto; padding:10px 20px;" onclick="enviar()">🚀</button>
         </div>
     </div>
 
     <script>
-        // --- CAMBIOS CLAVE PARA QUE CORRA EN EL TELÉFONO ---
-        // Se eliminó "http://localhost:3000" de todos los fetch.
+        function toggleMenu() {
+            document.getElementById('side-menu').classList.toggle('active');
+            document.getElementById('overlay').classList.toggle('active');
+        }
 
         function mostrarTab(id) {
-            document.getElementById('login-box').style.display = 'none';
-            document.getElementById('register-box').style.display = 'none';
-            document.getElementById('recover-box').style.display = 'none';
-            document.getElementById(id).style.display = 'block';
+            document.querySelectorAll('.box').forEach(b => b.style.display='none');
+            document.getElementById(id).style.display='block';
         }
 
-        function toggleMenu() {
-            let b = document.getElementById('themes-box');
-            b.style.display = (b.style.display==='flex') ? 'none' : 'flex';
-        }
-
-        function cambiarFondo(t) {
-            document.body.classList.remove('dark-mode');
-            const c = { 
-                'original': 'linear-gradient(135deg, #ffd1dc, #e0b0ff, #bde0fe, #ffedbc)', 
-                'oceano': 'linear-gradient(135deg, #bde0fe, #a2d2ff, #e0f2f1)',
-                'naranja': 'linear-gradient(135deg, #ffeadb, #ffd8b1, #ffcc99)',
+        function cambiarFondo(tipo) {
+            const b = document.body;
+            const gradients = {
+                'pastel': 'linear-gradient(135deg, #ffd1dc, #e0b0ff, #bde0fe, #ffedbc)',
+                'mar': 'linear-gradient(135deg, #bde0fe, #a2d2ff, #e0f2f1)',
+                'naranja': 'linear-gradient(135deg, #ffedbc, #ffd1dc, #ffccbc)',
                 'oscuro': 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)'
             };
-            if(t === 'oscuro') document.body.classList.add('dark-mode');
-            document.body.style.background = c[t];
-            document.body.style.backgroundSize = "400% 400%";
+            b.style.background = gradients[tipo];
+            b.style.backgroundSize = "400% 400%";
+            toggleMenu();
+        }
+
+        function abrirJuego(url) {
+            alert("⚠️ Este juego está diseñado para COMPUTADORA. La experiencia en móvil puede no ser correcta.");
+            window.open(url, '_blank');
+        }
+
+        function escribir(elemento, texto) {
+            let i = 0;
+            elemento.innerHTML = "";
+            const lapso = setInterval(() => {
+                if(i < texto.length) {
+                    elemento.innerHTML += texto.charAt(i);
+                    i++;
+                    document.getElementById('chat-window').scrollTop = 99999;
+                } else { clearInterval(lapso); }
+            }, 25);
         }
 
         async function entrar() {
             const email = document.getElementById('log-email').value;
             const pass = document.getElementById('log-pass').value;
-            if(!email || !pass) return alert("Hey, rellena los datos.");
-            // CAMBIO: /api/login
             const res = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, pass}) });
             const data = await res.json();
-            if(data.success) { 
-                document.getElementById('auth-container').style.display = 'none'; 
-                document.getElementById('chat-interface').style.display = 'grid'; 
-                document.getElementById('chat-window').innerHTML = `<div class="msg ai">¡Hola! Soy Diezus, hablemos.</div>`;
+            
+            if(data.success) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('chat-interface').style.display = 'flex';
+                document.getElementById('nav-bar').style.display = 'flex';
+                
+                const win = document.getElementById('chat-window');
+                const d = document.createElement('div');
+                d.className="msg ai";
+                win.appendChild(d);
+                escribir(d, "Hola, soy Diezus. He activado mis protocolos de memoria y sentimientos. ¿Cómo te encuentras hoy?");
             } else { alert("Datos incorrectos."); }
         }
 
+        async function enviar() {
+            const inp = document.getElementById('user-input');
+            const win = document.getElementById('chat-window');
+            if(!inp.value.trim()) return;
+
+            const msj = inp.value;
+            win.innerHTML += `<div class="msg user">${msj}</div>`;
+            inp.value = "";
+            win.scrollTop = win.scrollHeight;
+
+            const res = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mensaje: msj }) });
+            const data = await res.json();
+            
+            const aiDiv = document.createElement('div');
+            aiDiv.className = "msg ai";
+            win.appendChild(aiDiv);
+            escribir(aiDiv, data.message || data.respuesta);
+
+            if(data.action === "suggest_break") {
+                setTimeout(() => { if(confirm("Detecto que necesitas un respiro. ¿Quieres jugar un poco?")) toggleMenu(); }, 2000);
+            }
+        }
+
         async function registrar() {
-            const nombre = document.getElementById('reg-nom').value;
-            const email = document.getElementById('reg-mail').value;
-            const pass = document.getElementById('reg-pass').value;
-            const respuesta = document.getElementById('reg-r').value;
-            if(!nombre || !email || !pass || !respuesta) return alert("Rellena todo.");
-            // CAMBIO: /api/register
-            const res = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({nombre, email, pass, pregunta: document.getElementById('reg-pregunta').value, respuesta}) });
+            const payload = {
+                nombre: document.getElementById('reg-nom').value,
+                email: document.getElementById('reg-mail').value,
+                pass: document.getElementById('reg-pass').value,
+                pregunta: document.getElementById('reg-preg').value,
+                respuesta: document.getElementById('reg-res').value
+            };
+            const res = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
             if((await res.json()).success) { alert("¡Cuenta creada!"); mostrarTab('login-box'); }
         }
 
-        async function enviarMensaje() {
-            const input = document.getElementById('user-input');
-            const win = document.getElementById('chat-window');
-            if(!input.value.trim()) return;
-
-            const msj = input.value;
-            win.innerHTML += `<div class="msg user">${msj}</div>`;
-            input.value = "";
-            win.scrollTop = win.scrollHeight;
-
-            // CAMBIO: /api/chat
-            const res = await fetch('/api/chat', { 
-                method:'POST', 
-                headers:{'Content-Type':'application/json'}, 
-                body: JSON.stringify({ mensaje: msj }) 
-            });
-            const data = await res.json();
-
-            const aiMsgDiv = document.createElement("div");
-            aiMsgDiv.className = "msg ai";
-            win.appendChild(aiMsgDiv);
-            
-            let i = 0;
-            const texto = data.respuesta;
-            function escribir() {
-                if (i < texto.length) {
-                    aiMsgDiv.innerHTML += texto.charAt(i);
-                    i++;
-                    win.scrollTop = win.scrollHeight;
-                    setTimeout(escribir, 30);
-                }
-            }
-            escribir();
-        }
-
         async function recuperar() {
-            const email = document.getElementById('rec-email').value;
-            const respuesta = document.getElementById('rec-r').value;
-            const nuevaPass = document.getElementById('rec-nueva').value;
-            if(!email || !respuesta || !nuevaPass) return alert("Faltan datos.");
-            // CAMBIO: /api/recover
-            const res = await fetch('/api/recover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, respuesta, nuevaPass }) });
-            const data = await res.json(); alert(data.mensaje); if(data.success) mostrarTab('login-box');
+            const payload = {
+                email: document.getElementById('rec-mail').value,
+                pregunta: document.getElementById('rec-preg').value,
+                respuesta: document.getElementById('rec-res').value,
+                nuevaPass: document.getElementById('rec-nueva').value
+            };
+            const res = await fetch('/api/recover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            const data = await res.json();
+            alert(data.mensaje);
+            if(data.success) mostrarTab('login-box');
         }
     </script>
 </body>
