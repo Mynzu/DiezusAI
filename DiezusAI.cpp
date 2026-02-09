@@ -6,91 +6,125 @@
 #include <sstream>
 #include <ctime>
 #include <algorithm>
+#include <memory>
 
 using namespace std;
 
-struct Entry { int id, sev; string txt; };
+// Estructura de datos optimizada
+struct Entry { 
+    int id; 
+    int sev; 
+    string txt; 
+};
 
 class DiezusEngine {
 private:
     unordered_map<int, Entry> storage;
-    // Diccionario extendido para detectar sentimientos en frases naturales
-    vector<pair<string, int>> semanticMap = {
+    // Mapa semántico extendido para una detección más precisa
+    const vector<pair<string, int>> semanticMap = {
         {"suicid", 9}, {"morir", 9}, {"matar", 9}, {"fin", 9}, {"quitarme", 9},
         {"dificil", 0}, {"triste", 0}, {"mal", 0}, {"llorar", 0}, {"cansado", 0},
         {"odio", 4}, {"enojo", 4}, {"furia", 4}, {"solo", 6}, {"soledad", 6}
     };
-    
-    void setM(string f, string v) { ofstream o(f); o << v; }
-    string getM(string f, string d) { ifstream i(f); string v; return (i >> v) ? v : d; }
+
+    // Helper para persistencia de archivos (Optimizado para Render/Docker)
+    void saveState(const string& file, const string& val) {
+        ofstream o(file, ios::trunc);
+        if (o.is_open()) o << val;
+    }
+
+    string loadState(const string& file, const string& def) {
+        ifstream i(file);
+        string v;
+        return (getline(i, v)) ? v : def;
+    }
 
 public:
     DiezusEngine() {
-        ifstream f("dataset.txt"); string l;
-        while(getline(f, l)) {
-            stringstream ss(l); string s_id, cat, s_sev, txt;
-            if(getline(ss, s_id, '|') && getline(ss, cat, '|') && getline(ss, s_sev, '|') && getline(ss, txt))
-                storage[stoi(s_id)] = {stoi(s_id), stoi(s_sev), txt};
+        // Carga de dataset con validación de errores
+        ifstream f("dataset.txt");
+        string line;
+        while (getline(f, line)) {
+            stringstream ss(line);
+            string s_id, cat, s_sev, txt;
+            if (getline(ss, s_id, '|') && getline(ss, cat, '|') && 
+                getline(ss, s_sev, '|') && getline(ss, txt)) {
+                int id = stoi(s_id);
+                storage[id] = {id, stoi(s_sev), txt};
+            }
         }
     }
 
     string analyze(string raw) {
-        string in = raw; for(char &c : in) c = tolower(c);
-        string ctx = getM("contexto.txt", "normal");
-        int sev = 3; 
+        string in = raw;
+        transform(in.begin(), in.end(), in.begin(), ::tolower);
+        
+        string ctx = loadState("contexto.txt", "normal");
+        int currentSev = 3; // Neutral por defecto
 
-        // 1. GESTIÓN DE IDENTIDAD (Lo que Diezus ES)
-        if(in.find("hola") != string::npos) return "{\"sev\":3,\"res\":\"Hola. Soy Diezus. ¿En qué puedo apoyarte?\",\"act\":\"none\"}";
-        if(in.find("quien eres") != string::npos) return "{\"sev\":3,\"res\":\"Soy Diezus, una IA de soporte emocional diseñada para escucharte.\",\"act\":\"none\"}";
-        if(in.find("proposito") != string::npos) return "{\"sev\":3,\"res\":\"Mi propósito es ser tu refugio y ayudarte a encontrar calma.\",\"act\":\"none\"}";
+        // 1. GESTIÓN DE IDENTIDAD (Prioridad Alta)
+        if (in.find("hola") != string::npos) 
+            return "{\"sev\":3,\"res\":\"Hola. Soy Diezus. ¿En qué puedo apoyarte?\",\"act\":\"none\"}";
+        if (in.find("quien eres") != string::npos || in.find("quién eres") != string::npos) 
+            return "{\"sev\":3,\"res\":\"Soy Diezus, una IA de soporte emocional diseñada para escucharte.\",\"act\":\"none\"}";
+        if (in.find("proposito") != string::npos || in.find("propósito") != string::npos) 
+            return "{\"sev\":3,\"res\":\"Mi propósito es ser tu refugio y ayudarte a encontrar calma.\",\"act\":\"none\"}";
 
-        // 2. LÓGICA DE CONTEXTO (Respuesta al juego)
-        if(ctx == "juego") {
-            if(in.find("si") != string::npos || in.find("claro") != string::npos || in.find("bueno") != string::npos) {
-                setM("contexto.txt", "normal"); setM("avisos.txt", "0");
+        // 2. LÓGICA DE INTERRUPCIÓN (Juego)
+        if (ctx == "juego") {
+            if (in.find("si") != string::npos || in.find("claro") != string::npos || in.find("bueno") != string::npos) {
+                saveState("contexto.txt", "normal");
+                saveState("avisos.txt", "0");
                 return "{\"sev\":9,\"res\":\"Iniciando protocolo de distracción. Vamos al juego.\",\"act\":\"trigger_games\"}";
             }
         }
 
-        // 3. ANÁLISIS SEMÁNTICO (Aquí deja de repetir palabras)
-        // Buscamos la palabra con MAYOR severidad en la frase del usuario
+        // 3. ANÁLISIS SEMÁNTICO DE SENTIMIENTOS
         int maxSevFound = -1;
-        for(auto &d : semanticMap) {
-            if(in.find(d.first) != string::npos) {
-                if(d.second > maxSevFound) maxSevFound = d.second;
+        for (const auto& item : semanticMap) {
+            if (in.find(item.first) != string::npos) {
+                if (item.second > maxSevFound) maxSevFound = item.second;
             }
         }
-        if(maxSevFound != -1) sev = maxSevFound;
+        if (maxSevFound != -1) currentSev = maxSevFound;
 
-        // 4. SELECCIÓN DINÁMICA DE TUS 1700 FRASES
-        vector<int> ids;
-        for(auto const& [id, e] : storage) if(e.sev == sev) ids.push_back(id);
-        
-        // Si no detectó nada específico, usamos una frase neutral (Nivel 3)
-        if(ids.empty()) {
-            for(auto const& [id, e] : storage) if(e.sev == 3) ids.push_back(id);
+        // 4. SELECCIÓN DE RESPUESTA BASADA EN SEVERIDAD
+        vector<int> candidates;
+        for (const auto& [id, entry] : storage) {
+            if (entry.sev == currentSev) candidates.push_back(id);
         }
 
-        string res = storage[ids[rand() % ids.size()]].txt;
+        // Fallback si no hay frases de esa severidad
+        if (candidates.empty()) {
+            for (const auto& [id, entry] : storage) if (entry.sev == 3) candidates.push_back(id);
+        }
 
-        // 5. LÓGICA DE PERSISTENCIA (No saltar al juego de inmediato)
-        if(sev == 9 || sev == 0) {
-            int w = stoi(getM("avisos.txt", "0")) + 1;
-            setM("avisos.txt", to_string(w));
-            if(w >= 2) { // Bajamos a 2 avisos para que sea más reactivo
-                setM("contexto.txt", "juego");
-                return "{\"sev\":9,\"res\":\"" + res + " Noto que el sentimiento persiste. ¿Te gustaría distraerte con un juego?\",\"act\":\"none\"}";
+        string responseTxt = storage[candidates[rand() % candidates.size()]].txt;
+
+        // 5. PERSISTENCIA Y DETECCIÓN DE CRISIS
+        if (currentSev == 9 || currentSev == 0 || currentSev == 6) {
+            int warnings = stoi(loadState("avisos.txt", "0")) + 1;
+            saveState("avisos.txt", to_string(warnings));
+            
+            if (warnings >= 2) {
+                saveState("contexto.txt", "juego");
+                return "{\"sev\":" + to_string(currentSev) + ",\"res\":\"" + responseTxt + " Noto que te sientes muy mal. ¿Te gustaría distraerte con un juego?\",\"act\":\"suggest_game\"}";
             }
-        } else setM("avisos.txt", "0");
+        } else {
+            saveState("avisos.txt", "0");
+        }
 
-        setM("contexto.txt", "normal");
-        return "{\"sev\":"+to_string(sev)+",\"res\":\""+res+"\",\"act\":\"none\"}";
+        saveState("contexto.txt", "normal");
+        return "{\"sev\":" + to_string(currentSev) + ",\"res\":\"" + responseTxt + "\",\"act\":\"none\"}";
     }
 };
 
 int main(int argc, char* argv[]) {
-    srand(time(0));
-    DiezusEngine e;
-    if(argc > 1) cout << e.analyze(argv[1]) << endl;
+    if (argc < 2) return 1;
+    srand(static_cast<unsigned int>(time(0)));
+    
+    DiezusEngine engine;
+    cout << engine.analyze(argv[1]) << endl;
+    
     return 0;
 }
