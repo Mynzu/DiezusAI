@@ -12,120 +12,109 @@ using namespace std;
 
 struct Entry {
     int id;
-    string categoria;
-    int severidad;
-    string contenido;
+    string cat;
+    int sev;
+    string txt;
 };
 
 class DiezusEngine {
 private:
     unordered_map<int, Entry> storage;
-    unordered_map<string, int> mapaEmocional;
+    // Usamos un vector de pares para poder iterar y buscar subcadenas
+    vector<pair<string, int>> diccionarioCritico;
     deque<int> historial;
-    const size_t MAX_HISTORIAL = 10;
+    const size_t MAX_H = 10;
     string logPath = "sentimientos_semana.txt";
 
     string clean(string t) {
         string r = "";
-        for(char c : t) if(!ispunct(c)) r += tolower(c);
+        for(char c : t) {
+            if(!ispunct(c)) r += tolower(c);
+        }
         return r;
     }
 
-    // Análisis de historial acumulado
-    bool detectarEmergenciaSilenciosa() {
-        ifstream file(logPath);
-        if(!file) return false;
-        string line;
-        vector<int> ultimos;
-        while(getline(file, line)) {
-            size_t p = line.find("|");
-            if(p != string::npos) ultimos.push_back(stoi(line.substr(p+1)));
-        }
-        if(ultimos.size() < 5) return false;
-        
-        int alarma = 0;
-        for(size_t i = ultimos.size()-5; i < ultimos.size(); i++) {
-            if(ultimos[i] == 0 || ultimos[i] == 9 || ultimos[i] == 4) alarma++;
-        }
-        return (alarma >= 3); 
-    }
-
-    void inicializarMapaEmocional() {
-        mapaEmocional["triste"] = 0; mapaEmocional["mal"] = 0;
-        mapaEmocional["feliz"] = 1;  mapaEmocional["bien"] = 1;
-        mapaEmocional["puedo"] = 2;  mapaEmocional["fuerza"] = 2;
-        mapaEmocional["odio"] = 4;   mapaEmocional["enojo"] = 4;
-        mapaEmocional["solo"] = 6;   mapaEmocional["soledad"] = 6;
-        mapaEmocional["morir"] = 9;  mapaEmocional["ayuda"] = 9;
+    void inicializarDiccionario() {
+        // Palabras de alta prioridad (Nivel 9)
+        diccionarioCritico.push_back({"suicid", 9});
+        diccionarioCritico.push_back({"matar", 9});
+        diccionarioCritico.push_back({"morir", 9});
+        diccionarioCritico.push_back({"ayuda", 9});
+        // Otras emociones
+        diccionarioCritico.push_back({"triste", 0});
+        diccionarioCritico.push_back({"mal", 0});
+        diccionarioCritico.push_back({"feliz", 1});
+        diccionarioCritico.push_back({"bien", 1});
+        diccionarioCritico.push_back({"odio", 4});
+        diccionarioCritico.push_back({"solo", 6});
     }
 
 public:
     DiezusEngine() {
-        inicializarMapaEmocional();
-        ifstream file("dataset.txt");
-        string line;
-        while(getline(file, line)) {
-            stringstream ss(line);
-            string s_id, cat, s_sev, cont;
-            if(getline(ss, s_id, '|') && getline(ss, cat, '|') && 
-               getline(ss, s_sev, '|') && getline(ss, cont)) {
-                try { storage[stoi(s_id)] = {stoi(s_id), cat, stoi(s_sev), cont}; } catch (...) {}
+        inicializarDiccionario();
+        ifstream f("dataset.txt");
+        string l;
+        while(getline(f, l)) {
+            stringstream ss(l);
+            string id, cat, sev, txt;
+            if(getline(ss, id, '|') && getline(ss, cat, '|') && getline(ss, sev, '|') && getline(ss, txt)) {
+                storage[stoi(id)] = {stoi(id), cat, stoi(sev), txt};
             }
         }
     }
 
-    string analyze(string input) {
-        string in = clean(input);
-        int sevDetectada = 3; 
-        bool negacion = (in.find("no ") != string::npos || in.find("nunca ") != string::npos);
+    string analyze(string raw_input) {
+        string in = clean(raw_input);
+        int sev = 3; // Neutro por defecto
 
-        stringstream ss(in);
-        string word;
-        while(ss >> word) {
-            if(mapaEmocional.count(word)) {
-                sevDetectada = mapaEmocional[word];
-                if(negacion && (sevDetectada == 1 || sevDetectada == 2)) sevDetectada = 0; 
-                break;
+        // MEJORA TÉCNICA: Búsqueda de subcadena (Detecta "suicid" dentro de "suicidarme")
+        for(auto const& [palabra, nivel] : diccionarioCritico) {
+            if(in.find(palabra) != string::npos) {
+                sev = nivel;
+                // Si detectamos algo de nivel 9, dejamos de buscar, es prioridad.
+                if(sev == 9) break; 
             }
         }
 
-        // Lógica de Emergencia Silenciosa (Long-term memory)
-        bool malaRacha = detectarEmergenciaSilenciosa();
-        
-        int mejorID = -1;
-        vector<int> posibles;
-        for(auto const& [id, entry] : storage) {
-            if(entry.severidad == (malaRacha ? 9 : sevDetectada)) {
-                bool usado = false;
-                for(int h : historial) if(h == id) usado = true;
-                if(!usado) posibles.push_back(id);
+        // Manejo de negación simple
+        if((in.find("no ") != string::npos) && sev == 1) sev = 0;
+
+        // Selección de respuesta
+        vector<int> candidatos;
+        for(auto const& [id, e] : storage) {
+            if(e.sev == sev) {
+                bool u = false;
+                for(int h : historial) if(h == id) u = true;
+                if(!u) candidatos.push_back(id);
             }
         }
 
-        if(!posibles.empty()) {
-            mejorID = posibles[rand() % posibles.size()];
-            historial.push_back(mejorID);
-            if(historial.size() > MAX_HISTORIAL) historial.pop_front();
+        int bid = -1;
+        if(!candidatos.empty()) {
+            bid = candidatos[rand() % candidatos.size()];
+            historial.push_back(bid);
+            if(historial.size() > MAX_H) historial.pop_front();
         }
 
-        string respuesta = (mejorID != -1) ? storage[mejorID].contenido : "Procesando información...";
-        string accion = (sevDetectada == 9 || malaRacha) ? "trigger_games" : "none";
+        string res = (bid != -1) ? storage[bid].txt : "Entiendo. Cuéntame más al respecto.";
+        string act = (sev == 9) ? "trigger_games" : "none";
 
-        if(sevDetectada == 9 || malaRacha) {
-            respuesta = "He notado una tendencia crítica en tus últimos mensajes. Protocolo de bienestar activado.";
+        // Forzar respuesta de seguridad si es Nivel 9
+        if(sev == 9) {
+            res = "He detectado una situación de riesgo. Como tu IA de apoyo, mi protocolo indica que debemos hacer una pausa ahora mismo.";
         }
 
+        // Log para Render
         ofstream log(logPath, ios::app);
-        log << time(0) << "|" << sevDetectada << endl;
+        if(log) log << time(0) << "|" << sev << endl;
 
-        return "{\"sev\": " + to_string(sevDetectada) + ", \"res\": \"" + respuesta + "\", \"act\": \"" + accion + "\"}";
+        return "{\"sev\": " + to_string(sev) + ", \"res\": \"" + res + "\", \"act\": \"" + act + "\"}";
     }
 };
 
 int main(int argc, char* argv[]) {
     srand(time(0));
-    DiezusEngine diezus;
-    if(argc > 1) cout << diezus.analyze(argv[1]) << endl;
-    else cout << "{\"error\": \"No input\"}" << endl;
+    DiezusEngine engine;
+    if(argc > 1) cout << engine.analyze(argv[1]) << endl;
     return 0;
 }
