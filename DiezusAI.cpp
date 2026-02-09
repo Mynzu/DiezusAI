@@ -6,13 +6,12 @@
 #include <sstream>
 #include <ctime>
 #include <algorithm>
-#include <deque>
+#include <chrono>
 
 using namespace std;
 
 struct Entry {
     int id;
-    string cat;
     int sev;
     string txt;
 };
@@ -21,120 +20,120 @@ class DiezusEngine {
 private:
     unordered_map<int, Entry> storage;
     vector<pair<string, int>> diccionarioCritico;
-    deque<int> historial;
-    const size_t MAX_H = 10;
     string logPath = "sentimientos_semana.txt";
+    string histPath = "historial_ids.txt";
+    string contextPath = "contexto.txt";
 
     string clean(string t) {
         string r = "";
-        for(char c : t) {
-            if(!ispunct(c)) r += tolower(c);
-        }
+        for(char c : t) if(!ispunct(c)) r += tolower(c);
         return r;
     }
 
-    void inicializarDiccionario() {
-        // PRIORIDAD 9: Emergencia
-        diccionarioCritico.push_back({"suicid", 9});
-        diccionarioCritico.push_back({"matar", 9});
-        diccionarioCritico.push_back({"morir", 9});
-        diccionarioCritico.push_back({"ayuda", 9});
-        diccionarioCritico.push_back({"daño", 9});
-        
-        // NIVELES DE SENTIMIENTO
-        diccionarioCritico.push_back({"triste", 0});  diccionarioCritico.push_back({"llorar", 0});
-        diccionarioCritico.push_back({"feliz", 1});   diccionarioCritico.push_back({"alegre", 1});
-        diccionarioCritico.push_back({"puedo", 2});   diccionarioCritico.push_back({"lograr", 2});
-        diccionarioCritico.push_back({"gracias", 3}); diccionarioCritico.push_back({"agradezco", 3});
-        diccionarioCritico.push_back({"odio", 4});    diccionarioCritico.push_back({"enojo", 4});
-        diccionarioCritico.push_back({"solo", 6});    diccionarioCritico.push_back({"soledad", 6});
+    vector<int> cargarHistorial() {
+        vector<int> h; ifstream f(histPath); int id;
+        while(f >> id) h.push_back(id);
+        return h;
     }
+
+    void guardarHistorial(vector<int> h, int nuevoId) {
+        h.push_back(nuevoId);
+        if(h.size() > 20) h.erase(h.begin());
+        ofstream f(histPath);
+        for(int id : h) f << id << " ";
+    }
+
+    void setContext(string s) { ofstream f(contextPath); f << s; }
+    string getContext() { ifstream f(contextPath); string s; f >> s; return s; }
 
 public:
     DiezusEngine() {
-        inicializarDiccionario();
+        // Diccionario de impacto emocional
+        diccionarioCritico = {
+            {"suicid", 9}, {"matar", 9}, {"morir", 9}, {"ayuda", 9},
+            {"triste", 0}, {"mal", 0}, {"feliz", 1}, {"bien", 1},
+            {"odio", 4}, {"enojo", 4}, {"solo", 6}
+        };
+
+        // Carga de las 1700 frases
         ifstream f("dataset.txt");
-        if (!f) return;
         string l;
         while(getline(f, l)) {
             stringstream ss(l);
-            string id, cat, sev, txt;
-            if(getline(ss, id, '|') && getline(ss, cat, '|') && getline(ss, sev, '|') && getline(ss, txt)) {
-                try {
-                    storage[stoi(id)] = {stoi(id), cat, stoi(sev), txt};
-                } catch(...) {}
+            string s_id, cat, s_sev, txt;
+            if(getline(ss, s_id, '|') && getline(ss, cat, '|') && getline(ss, s_sev, '|') && getline(ss, txt)) {
+                try { storage[stoi(s_id)] = {stoi(s_id), stoi(s_sev), txt}; } catch(...) {}
             }
         }
     }
 
     string analyze(string raw_input) {
         string in = clean(raw_input);
-        int sev = 3; // Neutro por defecto (Agradecimiento/Estable)
+        string ctx = getContext();
+        int sev = 3; 
 
-        // 1. ESCANEO DE SUBSTRINGS (Coherencia de sentimiento)
-        for(auto const& [palabra, nivel] : diccionarioCritico) {
-            if(in.find(palabra) != string::npos) {
-                sev = nivel;
-                if(sev == 9) break; // Si es crítico, detenemos el escaneo
+        // 1. LÓGICA DE IDENTIDAD (Propósito y Quién es)
+        if(in.find("quien eres") != string::npos || in.find("quien es usted") != string::npos) {
+            setContext("normal");
+            return "{\"sev\": 3, \"res\": \"Soy Diezus, un sistema de acompañamiento inteligente diseñado para escucharte y apoyarte en tus momentos críticos.\", \"act\": \"none\"}";
+        }
+        if(in.find("proposito") != string::npos || in.find("para que sirves") != string::npos) {
+            setContext("normal");
+            return "{\"sev\": 3, \"res\": \"Mi propósito es ser un puente hacia tu bienestar, procesando tus emociones y ofreciéndote herramientas de distracción cuando el camino se torna difícil.\", \"act\": \"none\"}";
+        }
+        if(in == "hola" || in == "buenos dias" || in == "buenas noches") {
+            setContext("normal");
+            return "{\"sev\": 3, \"res\": \"Hola. Soy Diezus. Estoy operativo y listo para escucharte. ¿Cómo te encuentras hoy?\", \"act\": \"none\"}";
+        }
+
+        // 2. LÓGICA DE CONTEXTO (Respuesta a pregunta de crisis)
+        if(ctx == "esperando_juego") {
+            if(in.find("si") != string::npos || in.find("claro") != string::npos || in.find("bueno") != string::npos) {
+                setContext("normal");
+                return "{\"sev\": 9, \"res\": \"Entendido. Iniciando protocolo de relajación. Espero que esto te ayude a despejar la mente.\", \"act\": \"trigger_games\"}";
             }
         }
 
-        // 2. LÓGICA DE NEGACIÓN AVANZADA
-        vector<string> negaciones = {"no ", "nunca ", "tampoco ", "ni ", "jamas "};
-        bool tieneNegacion = false;
-        for(const string& n : negaciones) {
-            if(in.find(n) != string::npos) { tieneNegacion = true; break; }
+        // 3. ANÁLISIS EMOCIONAL
+        for(auto const& [palabra, nivel] : diccionarioCritico) {
+            if(in.find(palabra) != string::npos) { sev = nivel; break; }
         }
 
-        if(tieneNegacion) {
-            if(sev == 1 || sev == 2 || sev == 3) sev = 0; // "no feliz" -> triste
-            else if(sev == 0) sev = 1; // "no triste" -> feliz (poco común pero posible)
-        }
-
-        // 3. SELECCIÓN DE RESPUESTA DEL DATASET
+        // 4. SELECCIÓN ANTI-REPETICIÓN (Dataset de 1700 frases)
+        vector<int> usados = cargarHistorial();
         vector<int> candidatos;
         for(auto const& [id, e] : storage) {
-            if(e.sev == sev) {
-                bool usado = false;
-                for(int h : historial) if(h == id) usado = true;
-                if(!usado) candidatos.push_back(id);
-            }
+            if(e.sev == sev && find(usados.begin(), usados.end(), id) == usados.end()) 
+                candidatos.push_back(id);
         }
 
-        int bid = -1;
-        if(!candidatos.empty()) {
-            bid = candidatos[rand() % candidatos.size()];
-            historial.push_back(bid);
-            if(historial.size() > MAX_H) historial.pop_front();
+        if(candidatos.empty()) { // Reset si se acaban las opciones de ese nivel
+            for(auto const& [id, e] : storage) if(e.sev == sev) candidatos.push_back(id);
         }
 
-        // 4. GENERACIÓN DE SALIDA (Garantía de coherencia)
-        string res;
-        string act = (sev == 9) ? "trigger_games" : "none";
+        int selectedID = candidatos[rand() % candidatos.size()];
+        guardarHistorial(usados, selectedID);
 
+        string respuesta = storage[selectedID].txt;
+        string accion = "none";
+
+        // 5. MANEJO DE CRISIS
         if(sev == 9) {
-            res = "Protocolo de seguridad activado. He detectado niveles de estrés críticos. Por favor, hablemos de esto tras un breve descanso.";
-        } else if (bid != -1) {
-            res = storage[bid].txt;
+            setContext("esperando_juego");
+            respuesta = "He detectado una carga emocional muy fuerte en tus palabras. Como Diezus, me preocupas. ¿Te gustaría intentar distraerte con un juego ahora?";
+            accion = "none"; // No dispara el juego hasta que el usuario diga SÍ (Coherencia)
         } else {
-            res = "Comprendo lo que mencionas. Estoy aquí para escucharte y procesar esto juntos.";
+            setContext("normal");
         }
 
-        // 5. TELEMETRÍA (Para tu memoria a largo plazo en Render)
-        ofstream log(logPath, ios::app);
-        if(log) log << time(0) << "|" << sev << endl;
-
-        return "{\"sev\": " + to_string(sev) + ", \"res\": \"" + res + "\", \"act\": \"" + act + "\"}";
+        return "{\"sev\": " + to_string(sev) + ", \"res\": \"" + respuesta + "\", \"act\": \"" + accion + "\"}";
     }
 };
 
 int main(int argc, char* argv[]) {
-    srand(time(0));
+    auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
+    srand(static_cast<unsigned int>(seed));
     DiezusEngine engine;
-    if(argc > 1) {
-        cout << engine.analyze(argv[1]) << endl;
-    } else {
-        cout << "{\"sev\": 3, \"res\": \"Conexión establecida. Diezus listo.\", \"act\": \"none\"}" << endl;
-    }
+    if(argc > 1) cout << engine.analyze(argv[1]) << endl;
     return 0;
 }
